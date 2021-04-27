@@ -209,7 +209,7 @@ def RunProcess(command, stdout=True, stderr=True, stdin=None, retry=0, retrySlee
 ###################################################################################################
 # attempt dynamic imports, prompting for install via pip if possible
 DynImports = defaultdict(lambda: None)
-def DoDynamicImport(importName, pipPkgName, debug=False):
+def DoDynamicImport(importName, pipPkgName, interactive=False, debug=False):
   global DynImports
 
   # see if we've already imported it
@@ -233,7 +233,7 @@ def DoDynamicImport(importName, pipPkgName, debug=False):
 
     eprint(f'The {pipPkgName} module is required under Python {platform.python_version()} ({pyExec})')
 
-    if Which(pipCmd, debug=debug):
+    if interactive and Which(pipCmd, debug=debug):
       if YesOrNo(f'Importing the {pipPkgName} module failed. Attempt to install via {pipCmd}?'):
         installCmd = None
 
@@ -268,9 +268,8 @@ def DoDynamicImport(importName, pipPkgName, debug=False):
 
 ###################################################################################################
 # download to file
-def DownloadToFile(url, local_filename, chunk_bytes=4096, debug=False):
-  global DynImports
-  requests = DynImports['requests']
+def DownloadToFile(url, local_filename, chunk_bytes=4096, interactive=False, debug=False):
+  requests = DoDynamicImport('requests', 'requests', interactive=interactive, debug=debug)
 
   r = requests.get(url, stream=True, allow_redirects=True)
   with open(local_filename, 'wb') as f:
@@ -284,16 +283,17 @@ def DownloadToFile(url, local_filename, chunk_bytes=4096, debug=False):
 
 ###################################################################################################
 # create a local git clone
-def GitClone(url, local_dir, depth=2147483647, recursive=True, singleBranch=False, recurseSubmodules=True, shallowSubmodules=True, noTags=False):
-  global DynImports
-  DynImports['git'].Repo.clone_from(url,
-                                    local_dir,
-                                    **{"depth": depth,
-                                       "recursive": recursive,
-                                       "single-branch": singleBranch,
-                                       "recurse-submodules": recurseSubmodules,
-                                       "shallow-submodules": shallowSubmodules,
-                                       "no-tags": noTags})
+def GitClone(url, local_dir, depth=2147483647, recursive=True, singleBranch=False, recurseSubmodules=True, shallowSubmodules=True, noTags=False, interactive=False):
+  git = DoDynamicImport('git', 'GitPython', interactive=interactive)
+
+  git.Repo.clone_from(url,
+                      local_dir,
+                      **{"depth": depth,
+                      "recursive": recursive,
+                      "single-branch": singleBranch,
+                      "recurse-submodules": recurseSubmodules,
+                      "shallow-submodules": shallowSubmodules,
+                      "no-tags": noTags})
 
 ###################################################################################################
 # recursively remove empty subfolders
