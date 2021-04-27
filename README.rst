@@ -1,14 +1,6 @@
 mmguero
 =======
 
-.. image:: https://img.shields.io/pypi/v/mmguero.svg
-    :target: https://pypi.python.org/pypi/mmguero
-    :alt: Latest PyPI version
-
-.. image::  .png
-   :target:
-   :alt: Latest Travis CI build status
-
 Useful helpers by me, for me.
 
 Usage
@@ -25,6 +17,8 @@ Compatibility
 
 Licence
 -------
+
+MIT, see [LICENSE](./LICENSE).
 
 Authors
 -------
