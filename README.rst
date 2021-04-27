@@ -18,7 +18,7 @@ Compatibility
 Licence
 -------
 
-MIT, see [LICENSE](./LICENSE).
+MIT, see `LICENSE <./LICENSE>_`.
 
 Authors
 -------
