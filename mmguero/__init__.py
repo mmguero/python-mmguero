@@ -3,3 +3,5 @@
 __version__ = '0.1.0'
 __author__ = 'Seth Grover <tlacuache@gmail.com>'
 __all__ = []
+
+from mmguero.mmguero import *
