@@ -31,6 +31,11 @@ except ImportError:
 PLATFORM_WINDOWS = "Windows"
 PLATFORM_MAC = "Darwin"
 PLATFORM_LINUX = "Linux"
+PLATFORM_LINUX_CENTOS = 'centos'
+PLATFORM_LINUX_DEBIAN = 'debian'
+PLATFORM_LINUX_FEDORA = 'fedora'
+PLATFORM_LINUX_UBUNTU = 'ubuntu'
+PLATFORM_LINUX_RASPBIAN = 'raspbian'
 
 ###################################################################################################
 # chdir to directory as context manager, returning automatically
