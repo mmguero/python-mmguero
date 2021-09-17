@@ -23,4 +23,4 @@ MIT, see `LICENSE <./LICENSE>`_.
 Authors
 -------
 
-`mmguero` was written by `Seth Grover <tlacuache@gmail.com>`_.
+`mmguero` was written by `Seth Grover <mero.mero.guero@gmail.com>`_.
