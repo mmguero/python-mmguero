@@ -124,10 +124,7 @@ def Which(cmd, debug=False):
     if HasWhich:
         result = which(cmd) is not None
     else:
-        result = any(
-            os.access(os.path.join(path, cmd), os.X_OK)
-            for path in os.environ["PATH"].split(os.pathsep)
-        )
+        result = any(os.access(os.path.join(path, cmd), os.X_OK) for path in os.environ["PATH"].split(os.pathsep))
     if debug:
         eprint(f"Which({HasWhich}) {cmd} returned {result}")
     return result
@@ -214,9 +211,7 @@ def RunProcess(
 
     try:
         # run the command
-        retcode, cmdout, cmderr = CheckOutputInput(
-            command, input=stdin.encode() if stdin else stdin, cwd=cwd, env=env
-        )
+        retcode, cmdout, cmderr = CheckOutputInput(command, input=stdin.encode() if stdin else stdin, cwd=cwd, env=env)
 
         # split the output on newlines to return a list
         if stderr and (len(cmderr) > 0):
@@ -229,16 +224,12 @@ def RunProcess(
             output.append(f"Command {command} not found or unable to execute")
 
     if debug:
-        eprint(
-            f"{command}({stdin[:80] + bool(stdin[80:]) * '...' if stdin else ''}) returned {retcode}: {output}"
-        )
+        eprint(f"{command}({stdin[:80] + bool(stdin[80:]) * '...' if stdin else ''}) returned {retcode}: {output}")
 
     if (retcode != 0) and retry and (retry > 0):
         # sleep then retry
         time.sleep(retrySleepSec)
-        return RunProcess(
-            command, stdout, stderr, stdin, retry - 1, retrySleepSec, cwd, env, debug
-        )
+        return RunProcess(command, stdout, stderr, stdin, retry - 1, retrySleepSec, cwd, env, debug)
     else:
         return retcode, output
 
@@ -271,14 +262,10 @@ def DoDynamicImport(importName, pipPkgName, interactive=False, debug=False):
         if not Which(pipCmd, debug=debug):
             pipCmd = "pip"
 
-        eprint(
-            f"The {pipPkgName} module is required under Python {platform.python_version()} ({pyExec})"
-        )
+        eprint(f"The {pipPkgName} module is required under Python {platform.python_version()} ({pyExec})")
 
         if interactive and Which(pipCmd, debug=debug):
-            if YesOrNo(
-                f"Importing the {pipPkgName} module failed. Attempt to install via {pipCmd}?"
-            ):
+            if YesOrNo(f"Importing the {pipPkgName} module failed. Attempt to install via {pipCmd}?"):
                 installCmd = None
 
                 if (pyPlatform == PLATFORM_LINUX) or (pyPlatform == PLATFORM_MAC):
@@ -315,12 +302,8 @@ def DoDynamicImport(importName, pipPkgName, interactive=False, debug=False):
 
 ###################################################################################################
 # download to file
-def DownloadToFile(
-    url, local_filename, chunk_bytes=4096, interactive=False, debug=False
-):
-    requests = DoDynamicImport(
-        "requests", "requests", interactive=interactive, debug=debug
-    )
+def DownloadToFile(url, local_filename, chunk_bytes=4096, interactive=False, debug=False):
+    requests = DoDynamicImport("requests", "requests", interactive=interactive, debug=debug)
 
     r = requests.get(url, stream=True, allow_redirects=True)
     with open(local_filename, "wb") as f:
