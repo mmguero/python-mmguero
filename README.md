@@ -6,10 +6,14 @@
 
 * `AskForPassword` - get interactive password (without echoing)
 * `AskForString` - get interactive user response
+* `CaselessDictionary` - dictionary that enables case insensitive searching while preserving case sensitivity
+when keys are listed
 * `CheckOutputInput` - run command with arguments and return its exit code, stdout, and stderr
+* `deep_get` - safe deep get for a dictionary
 * `DoDynamicImport` - attempt dynamic imports, prompting for install via pip if possible
 * `DownloadToFile` - download a URL to a local file
 * `eprint` - print to stderr
+* `get_iterable` - return an iterable for an iterable (as-is) or a scalar (as a single element in a tuple)
 * `GitClone` - create a local git clone
 * `LoadStrIfJson` - is this string valid json? if so, load and return it
 * `pushd` - chdir to directory as context manager, returning automatically
