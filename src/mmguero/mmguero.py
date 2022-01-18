@@ -13,6 +13,7 @@ import sys
 import time
 
 from collections import defaultdict
+from collections.abc import Iterable
 from subprocess import PIPE, STDOUT, Popen, CalledProcessError
 
 try:
@@ -72,6 +73,16 @@ def deep_get(d, keys, default=None):
     if not keys:
         return d
     return deep_get(d.get(keys[0]), keys[1:], default)
+
+
+###################################################################################################
+# if the object is an iterable, return it, otherwise return a tuple with it as a single element.
+# useful if you want to user either a scalar or an array in a loop, etc.
+def get_iterable(x):
+    if isinstance(x, Iterable) and not isinstance(x, str):
+        return x
+    else:
+        return (x,)
 
 
 ###################################################################################################
