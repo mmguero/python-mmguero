@@ -12,9 +12,12 @@ import socket
 import sys
 import time
 
+from base64 import b64decode
 from collections import defaultdict
 from collections.abc import Iterable
+from multiprocessing import RawValue
 from subprocess import PIPE, STDOUT, Popen, CalledProcessError
+from threading import Lock
 
 try:
     from pwd import getpwuid
@@ -38,6 +41,35 @@ PLATFORM_LINUX_DEBIAN = "debian"
 PLATFORM_LINUX_FEDORA = "fedora"
 PLATFORM_LINUX_UBUNTU = "ubuntu"
 PLATFORM_LINUX_RASPBIAN = "raspbian"
+
+
+###################################################################################################
+# atomic integer class and context manager
+class AtomicInt:
+    def __init__(self, value=0):
+        self.val = RawValue('i', value)
+        self.lock = Lock()
+
+    def increment(self):
+        with self.lock:
+            self.val.value += 1
+            return self.val.value
+
+    def decrement(self):
+        with self.lock:
+            self.val.value -= 1
+            return self.val.value
+
+    def value(self):
+        with self.lock:
+            return self.val.value
+
+    def __enter__(self):
+        return self.increment()
+
+    def __exit__(self, type, value, traceback):
+        return self.decrement()
+
 
 ###################################################################################################
 # chdir to directory as context manager, returning automatically
@@ -63,22 +95,22 @@ def eprint(*args, **kwargs):
 #
 # Example:
 #   d = {'meta': {'status': 'OK', 'status_code': 200}}
-#   deep_get(d, ['meta', 'status_code'])          # => 200
-#   deep_get(d, ['garbage', 'status_code'])       # => None
-#   deep_get(d, ['meta', 'garbage'], default='-') # => '-'
-def deep_get(d, keys, default=None):
+#   DeepGet(d, ['meta', 'status_code'])          # => 200
+#   DeepGet(d, ['garbage', 'status_code'])       # => None
+#   DeepGet(d, ['meta', 'garbage'], default='-') # => '-'
+def DeepGet(d, keys, default=None):
     assert type(keys) is list
     if d is None:
         return default
     if not keys:
         return d
-    return deep_get(d.get(keys[0]), keys[1:], default)
+    return DeepGet(d.get(keys[0]), keys[1:], default)
 
 
 ###################################################################################################
 # if the object is an iterable, return it, otherwise return a tuple with it as a single element.
 # useful if you want to user either a scalar or an array in a loop, etc.
-def get_iterable(x):
+def GetIterable(x):
     if isinstance(x, Iterable) and not isinstance(x, str):
         return x
     else:
@@ -146,6 +178,15 @@ def str2bool(v):
 
 
 ###################################################################################################
+# decode a string as base64 only if it starts with base64:, otherwise just return
+def Base64DecodeIfPrefixed(s: str):
+    if s.startswith('base64:'):
+        return b64decode(s[7:]).decode('utf-8')
+    else:
+        return s
+
+
+###################################################################################################
 # determine if a program/script exists and is executable in the system path
 def Which(cmd, debug=False):
     global HasWhich
@@ -180,10 +221,17 @@ def TestSocket(host, port):
 
 
 ###################################################################################################
-# is this string valid json? if so, load and return it
+# is this valid json? if so, load and return it
 def LoadStrIfJson(jsonStr):
     try:
         return json.loads(jsonStr)
+    except ValueError as e:
+        return None
+
+
+def LoadFileIfJson(fileHandle):
+    try:
+        return json.load(fileHandle)
     except ValueError as e:
         return None
 
