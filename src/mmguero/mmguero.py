@@ -131,8 +131,17 @@ def GetIterable(x):
 
 
 ###################################################################################################
+# attempt to clear the screen
+def ClearScreen():
+    try:
+        os.system("clear" if platform.system() != PLATFORM_WINDOWS else "cls")
+    except Exception as e:
+        pass
+
+
+###################################################################################################
 # get interactive user response to Y/N question
-def YesOrNo(question, default=None, forceInteraction=INTERACTION_NOT_FORCED, acceptDefault=False):
+def YesOrNo(question, default=None, forceInteraction=INTERACTION_NOT_FORCED, acceptDefault=False, clearScreen=False):
 
     questionStr = f"{question} (y/n): "
     if acceptDefault == True:
@@ -158,12 +167,15 @@ def YesOrNo(question, default=None, forceInteraction=INTERACTION_NOT_FORCED, acc
     if (len(reply) == 0) and (acceptDefault == True):
         reply = "y" if default else "n"
 
+    if clearScreen == True:
+        ClearScreen()
+
     if isinstance(reply, str) and (len(reply) > 0) and reply[0] == "y":
         return True
     elif isinstance(reply, str) and (len(reply) > 0) and reply[0] == "n":
         return False
     else:
-        return YesOrNo(question, default=default, forceInteraction=forceInteraction)
+        return YesOrNo(question, default=default, forceInteraction=forceInteraction, clearScreen=clearScreen)
 
 
 ###################################################################################################
@@ -172,7 +184,7 @@ def YesOrNo(question, default=None, forceInteraction=INTERACTION_NOT_FORCED, acc
 # selected/unselected state of each entry; can be True or False, 1 or 0, "on" or "off"
 # (True, 1 and "on" meaning selected), or any case variation of these two strings.
 # No more than one entry should be set to True.
-def ChooseOne(prompt, choices=[], forceInteraction=INTERACTION_NOT_FORCED, acceptDefault=False):
+def ChooseOne(prompt, choices=[], forceInteraction=INTERACTION_NOT_FORCED, acceptDefault=False, clearScreen=False):
 
     validChoices = [x for x in choices if len(x) == 3 and isinstance(x[0], str) and isinstance(x[2], bool)]
     defaulted = next(iter([x for x in validChoices if x[2] == True]), None)
@@ -211,6 +223,9 @@ def ChooseOne(prompt, choices=[], forceInteraction=INTERACTION_NOT_FORCED, accep
                     reply = validChoices[inputIndex][0]
                     break
 
+    if clearScreen == True:
+        ClearScreen()
+
     return reply
 
 
@@ -219,7 +234,7 @@ def ChooseOne(prompt, choices=[], forceInteraction=INTERACTION_NOT_FORCED, accep
 # choices - an iterable of (tag, item, status) tuples where status specifies the initial
 # selected/unselected state of each entry; can be True or False, 1 or 0, "on" or "off"
 # (True, 1 and "on" meaning selected), or any case variation of these two strings.
-def ChooseMultiple(prompt, choices=[], forceInteraction=INTERACTION_NOT_FORCED, acceptDefault=False):
+def ChooseMultiple(prompt, choices=[], forceInteraction=INTERACTION_NOT_FORCED, acceptDefault=False, clearScreen=False):
 
     validChoices = [x for x in choices if len(x) == 3 and isinstance(x[0], str) and isinstance(x[2], bool)]
     defaulted = [x[0] for x in validChoices if x[2] == True]
@@ -264,12 +279,17 @@ def ChooseMultiple(prompt, choices=[], forceInteraction=INTERACTION_NOT_FORCED, 
                 if len(reply) > 0:
                     break
 
+    if clearScreen == True:
+        ClearScreen()
+
     return reply
 
 
 ###################################################################################################
 # get interactive user response
-def AskForString(question, default=None, forceInteraction=INTERACTION_NOT_FORCED, acceptDefault=False):
+def AskForString(
+    question, default=None, forceInteraction=INTERACTION_NOT_FORCED, acceptDefault=False, clearScreen=False
+):
 
     if (acceptDefault == True) and (default is not None) and (forceInteraction == INTERACTION_NOT_FORCED):
         reply = default
@@ -291,12 +311,15 @@ def AskForString(question, default=None, forceInteraction=INTERACTION_NOT_FORCED
             if (len(reply) == 0) and (acceptDefault == True) and (default is not None):
                 reply = default
 
+    if clearScreen == True:
+        ClearScreen()
+
     return reply
 
 
 ###################################################################################################
 # get interactive password (without echoing)
-def AskForPassword(prompt, forceInteraction=INTERACTION_FORCED):
+def AskForPassword(prompt, forceInteraction=INTERACTION_FORCED, clearScreen=False):
 
     if (MainDialog is not None) and (
         isinstance(forceInteraction, bool) or (forceInteraction == INTERACTION_FORCE_DIALOG)
@@ -307,6 +330,9 @@ def AskForPassword(prompt, forceInteraction=INTERACTION_FORCED):
 
     else:
         reply = getpass.getpass(prompt=f"{prompt}: ")
+
+    if clearScreen == True:
+        ClearScreen()
 
     return reply
 
