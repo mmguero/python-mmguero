@@ -9,6 +9,7 @@ import os
 import platform
 import re
 import socket
+import string
 import sys
 import time
 
@@ -31,6 +32,13 @@ try:
 except ImportError:
     HasWhich = False
 
+try:
+    from dialog import Dialog
+
+    MainDialog = Dialog(dialog='dialog', autowidgetsize=True)
+except ImportError:
+    Dialog = None
+    MainDialog = None
 
 ###################################################################################################
 PLATFORM_WINDOWS = "Windows"
@@ -42,6 +50,11 @@ PLATFORM_LINUX_FEDORA = "fedora"
 PLATFORM_LINUX_UBUNTU = "ubuntu"
 PLATFORM_LINUX_RASPBIAN = "raspbian"
 
+###################################################################################################
+INTERACTION_NOT_FORCED = False
+INTERACTION_FORCED = True
+INTERACTION_FORCE_DIALOG = "dialog"
+INTERACTION_FORCE_INPUT = "input"
 
 ###################################################################################################
 # atomic integer class and context manager
@@ -119,50 +132,182 @@ def GetIterable(x):
 
 ###################################################################################################
 # get interactive user response to Y/N question
-def YesOrNo(question, default=None, forceInteraction=False, acceptDefault=False):
+def YesOrNo(question, default=None, forceInteraction=INTERACTION_NOT_FORCED, acceptDefault=False):
 
-    if default == True:
-        questionStr = f"\n{question} (Y/n): "
-    elif default == False:
-        questionStr = f"\n{question} (y/N): "
-    else:
-        questionStr = f"\n{question} (y/n): "
+    questionStr = f"{question} (y/n): "
+    if acceptDefault == True:
+        if default == True:
+            questionStr = f"{question} (Y/n): "
+        elif default == False:
+            questionStr = f"{question} (y/N): "
 
-    if acceptDefault and (default is not None) and (not forceInteraction):
+    if (acceptDefault == True) and (default is not None) and (forceInteraction == INTERACTION_NOT_FORCED):
         reply = ""
     else:
-        while True:
-            reply = str(input(questionStr)).lower().strip()
-            if (len(reply) > 0) or (default is not None):
-                break
+        if (MainDialog is not None) and (
+            isinstance(forceInteraction, bool) or (forceInteraction == INTERACTION_FORCE_DIALOG)
+        ):
+            reply = "y" if (MainDialog.yesno(question) == Dialog.OK) else "n"
 
-    if len(reply) == 0:
+        else:
+            while True:
+                reply = str(input(questionStr)).lower().strip()
+                if (len(reply) > 0) or (default is not None):
+                    break
+
+    if (len(reply) == 0) and (acceptDefault == True):
         reply = "y" if default else "n"
 
-    if reply[0] == "y":
+    if isinstance(reply, str) and (len(reply) > 0) and reply[0] == "y":
         return True
-    elif reply[0] == "n":
+    elif isinstance(reply, str) and (len(reply) > 0) and reply[0] == "n":
         return False
     else:
-        return YesOrNo(question, default=default)
+        return YesOrNo(question, default=default, forceInteraction=forceInteraction)
+
+
+###################################################################################################
+# Choose one of many.
+# choices - an iterable of (tag, item, status) tuples where status specifies the initial
+# selected/unselected state of each entry; can be True or False, 1 or 0, "on" or "off"
+# (True, 1 and "on" meaning selected), or any case variation of these two strings.
+# No more than one entry should be set to True.
+def ChooseOne(prompt, choices=[], forceInteraction=INTERACTION_NOT_FORCED, acceptDefault=False):
+
+    validChoices = [x for x in choices if len(x) == 3 and isinstance(x[0], str) and isinstance(x[2], bool)]
+    defaulted = next(iter([x for x in validChoices if x[2] == True]), None)
+
+    if (acceptDefault == True) and (forceInteraction == INTERACTION_NOT_FORCED):
+        if defaulted is not None:
+            reply = defaulted[0]
+        else:
+            reply = ""
+
+    elif (MainDialog is not None) and (
+        isinstance(forceInteraction, bool) or (forceInteraction == INTERACTION_FORCE_DIALOG)
+    ):
+        code, reply = MainDialog.radiolist(
+            prompt,
+            choices=validChoices,
+        )
+        if code == Dialog.CANCEL or code == Dialog.ESC:
+            raise ValueError("Operation cancelled")
+
+    else:
+        index = 0
+        for choice in validChoices:
+            index = index + 1
+            print(f"{index}: {choice[0]} - {choice[1]}")
+        while True:
+            inputRaw = input(
+                f"{prompt}{f' ({defaulted[0]})' if (defaulted is not None) and (acceptDefault == True) else ''}: "
+            ).strip()
+            if (len(inputRaw) == 0) and (acceptDefault == True) and (defaulted is not None):
+                reply = defaulted[0]
+                break
+            elif (len(inputRaw) > 0) and inputRaw.isnumeric():
+                inputIndex = int(inputRaw) - 1
+                if inputIndex > -1 and inputIndex < len(validChoices):
+                    reply = validChoices[inputIndex][0]
+                    break
+
+    return reply
+
+
+###################################################################################################
+# Choose multiple of many
+# choices - an iterable of (tag, item, status) tuples where status specifies the initial
+# selected/unselected state of each entry; can be True or False, 1 or 0, "on" or "off"
+# (True, 1 and "on" meaning selected), or any case variation of these two strings.
+def ChooseMultiple(prompt, choices=[], forceInteraction=INTERACTION_NOT_FORCED, acceptDefault=False):
+
+    validChoices = [x for x in choices if len(x) == 3 and isinstance(x[0], str) and isinstance(x[2], bool)]
+    defaulted = [x[0] for x in validChoices if x[2] == True]
+
+    if (acceptDefault == True) and (forceInteraction == INTERACTION_NOT_FORCED):
+        reply = defaulted
+
+    elif (MainDialog is not None) and (
+        isinstance(forceInteraction, bool) or (forceInteraction == INTERACTION_FORCE_DIALOG)
+    ):
+        code, reply = MainDialog.checklist(
+            prompt,
+            choices=validChoices,
+        )
+        if code == Dialog.CANCEL or code == Dialog.ESC:
+            raise ValueError("Operation cancelled")
+
+    else:
+        allowedChars = set(string.digits + ',' + ' ')
+        defaultValListStr = ",".join(defaulted)
+        print(f"0: NONE")
+        index = 0
+        for choice in validChoices:
+            index = index + 1
+            print(f"{index}: {choice[0]} - {choice[1]}")
+        while True:
+            inputRaw = input(
+                f"{prompt}{f' ({defaultValListStr})' if (len(defaultValListStr) > 0) and (acceptDefault == True) else ''}: "
+            ).strip()
+            if (len(inputRaw) == 0) and (acceptDefault == True) and (len(defaulted) > 0):
+                reply = defaulted
+                break
+            elif inputRaw == '0':
+                reply = []
+                break
+            elif (len(inputRaw) > 0) and (set(inputRaw) <= allowedChars):
+                reply = []
+                selectedIndexes = list(set([int(x.strip()) - 1 for x in inputRaw.split(',') if (len(x.strip())) > 0]))
+                for idx in selectedIndexes:
+                    if idx > -1 and idx < len(validChoices):
+                        reply.append(validChoices[idx][0])
+                if len(reply) > 0:
+                    break
+
+    return reply
 
 
 ###################################################################################################
 # get interactive user response
-def AskForString(question, default=None, forceInteraction=False, acceptDefault=False):
+def AskForString(question, default=None, forceInteraction=INTERACTION_NOT_FORCED, acceptDefault=False):
 
-    if acceptDefault and (default is not None) and (not forceInteraction):
+    if (acceptDefault == True) and (default is not None) and (forceInteraction == INTERACTION_NOT_FORCED):
         reply = default
+
     else:
-        reply = str(input(f"\n{question}: ")).strip()
+        if (MainDialog is not None) and (
+            isinstance(forceInteraction, bool) or (forceInteraction == INTERACTION_FORCE_DIALOG)
+        ):
+            code, reply = MainDialog.inputbox(question, init=default if isinstance(default, str) else "")
+            if (code == Dialog.CANCEL) or (code == Dialog.ESC):
+                raise ValueError("Operation cancelled")
+            else:
+                reply = reply.strip()
+
+        else:
+            reply = str(
+                input(f"{question}{f' ({default})' if (default is not None) and (acceptDefault == True) else ''}: ")
+            ).strip()
+            if (len(reply) == 0) and (acceptDefault == True) and (default is not None):
+                reply = default
 
     return reply
 
 
 ###################################################################################################
 # get interactive password (without echoing)
-def AskForPassword(prompt):
-    reply = getpass.getpass(prompt=prompt)
+def AskForPassword(prompt, forceInteraction=INTERACTION_FORCED):
+
+    if (MainDialog is not None) and (
+        isinstance(forceInteraction, bool) or (forceInteraction == INTERACTION_FORCE_DIALOG)
+    ):
+        code, reply = MainDialog.passwordbox(prompt, insecure=True)
+        if (code == Dialog.CANCEL) or (code == Dialog.ESC):
+            raise ValueError("Operation cancelled")
+
+    else:
+        reply = getpass.getpass(prompt=f"{prompt}: ")
+
     return reply
 
 
