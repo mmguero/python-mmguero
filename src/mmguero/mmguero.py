@@ -16,6 +16,7 @@ import time
 from base64 import b64decode
 from collections import defaultdict
 from collections.abc import Iterable
+from enum import IntFlag, auto
 from multiprocessing import RawValue
 from subprocess import PIPE, STDOUT, Popen, CalledProcessError
 from threading import Lock
@@ -51,10 +52,16 @@ PLATFORM_LINUX_UBUNTU = "ubuntu"
 PLATFORM_LINUX_RASPBIAN = "raspbian"
 
 ###################################################################################################
-INTERACTION_NOT_FORCED = False
-INTERACTION_FORCED = True
-INTERACTION_FORCE_DIALOG = "dialog"
-INTERACTION_FORCE_INPUT = "input"
+class UserInputDefaultsBehavior(IntFlag):
+    DefaultsPrompt = auto()
+    DefaultsAccept = auto()
+    DefaultsNonInteractive = auto()
+
+
+class UserInterfaceMode(IntFlag):
+    InteractionDialog = auto()
+    InteractionInput = auto()
+
 
 ###################################################################################################
 # atomic integer class and context manager
@@ -104,6 +111,22 @@ def eprint(*args, **kwargs):
 
 
 ###################################################################################################
+# convenient boolean argument parsing
+def str2bool(v):
+    if isinstance(v, bool):
+        return v
+    elif isinstance(v, str):
+        if v.lower() in ("yes", "true", "t", "y", "1"):
+            return True
+        elif v.lower() in ("no", "false", "f", "n", "0"):
+            return False
+        else:
+            raise ValueError("Boolean value expected")
+    else:
+        raise ValueError("Boolean value expected")
+
+
+###################################################################################################
 # safe deep get for a dictionary
 #
 # Example:
@@ -141,41 +164,139 @@ def ClearScreen():
 
 ###################################################################################################
 # get interactive user response to Y/N question
-def YesOrNo(question, default=None, forceInteraction=INTERACTION_NOT_FORCED, acceptDefault=False, clearScreen=False):
+def YesOrNo(
+    question,
+    default=None,
+    defaultBehavior=UserInputDefaultsBehavior.DefaultsPrompt,
+    uiMode=UserInterfaceMode.InteractionDialog | UserInterfaceMode.InteractionInput,
+    clearScreen=False,
+):
 
-    questionStr = f"{question} (y/n): "
-    if acceptDefault == True:
-        if default == True:
-            questionStr = f"{question} (Y/n): "
-        elif default == False:
-            questionStr = f"{question} (y/N): "
-
-    if (acceptDefault == True) and (default is not None) and (forceInteraction == INTERACTION_NOT_FORCED):
+    if (default is not None) and (
+        (defaultBehavior & UserInputDefaultsBehavior.DefaultsAccept)
+        and (defaultBehavior & UserInputDefaultsBehavior.DefaultsNonInteractive)
+    ):
         reply = ""
-    else:
-        if (MainDialog is not None) and (
-            isinstance(forceInteraction, bool) or (forceInteraction == INTERACTION_FORCE_DIALOG)
-        ):
-            reply = "y" if (MainDialog.yesno(question) == Dialog.OK) else "n"
 
+    elif (uiMode & UserInterfaceMode.InteractionDialog) and (MainDialog is not None):
+        defaultYes = (default is not None) and str2bool(default)
+        reply = MainDialog.yesno(
+            question, yes_label='Yes' if defaultYes else 'No', no_label='no' if defaultYes else 'yes'
+        )
+        if defaultYes:
+            reply = 'y' if (reply == Dialog.OK) else 'n'
         else:
-            while True:
-                reply = str(input(questionStr)).lower().strip()
-                if (len(reply) > 0) or (default is not None):
-                    break
+            reply = 'n' if (reply == Dialog.OK) else 'y'
 
-    if (len(reply) == 0) and (acceptDefault == True):
-        reply = "y" if default else "n"
+    elif uiMode & UserInterfaceMode.InteractionInput:
+
+        if (default is not None) and defaultBehavior & UserInputDefaultsBehavior.DefaultsPrompt:
+            if str2bool(default):
+                questionStr = f"{question} (Y/n): "
+            else:
+                questionStr = f"{question} (y/N): "
+        else:
+            questionStr = f"{question}: "
+
+        while True:
+            reply = str(input(questionStr)).lower().strip()
+            if len(reply) > 0:
+                try:
+                    str2bool(reply)
+                    break
+                except ValueError as e:
+                    pass
+            elif (defaultBehavior & UserInputDefaultsBehavior.DefaultsAccept) and (default is not None):
+                break
+
+    else:
+        raise RuntimeError("No user interfaces available")
+
+    if (len(reply) == 0) and (defaultBehavior & UserInputDefaultsBehavior.DefaultsAccept):
+        reply = "y" if (default is not None) and str2bool(default) else "n"
 
     if clearScreen == True:
         ClearScreen()
 
-    if isinstance(reply, str) and (len(reply) > 0) and reply[0] == "y":
-        return True
-    elif isinstance(reply, str) and (len(reply) > 0) and reply[0] == "n":
-        return False
+    try:
+        return str2bool(reply)
+    except ValueError as e:
+        return YesOrNo(
+            question,
+            default=default,
+            uiMode=uiMode,
+            defaultBehavior=defaultBehavior - UserInputDefaultsBehavior.DefaultsAccept,
+            clearScreen=clearScreen,
+        )
+
+
+###################################################################################################
+# get interactive user response
+def AskForString(
+    question,
+    default=None,
+    defaultBehavior=UserInputDefaultsBehavior.DefaultsPrompt,
+    uiMode=UserInterfaceMode.InteractionDialog | UserInterfaceMode.InteractionInput,
+    clearScreen=False,
+):
+
+    if (default is not None) and (
+        (defaultBehavior & UserInputDefaultsBehavior.DefaultsAccept)
+        and (defaultBehavior & UserInputDefaultsBehavior.DefaultsNonInteractive)
+    ):
+        reply = default
+
+    elif (uiMode & UserInterfaceMode.InteractionDialog) and (MainDialog is not None):
+        code, reply = MainDialog.inputbox(
+            question,
+            init=default if (defaultBehavior & UserInputDefaultsBehavior.DefaultsPrompt) else "",
+        )
+        if (code == Dialog.CANCEL) or (code == Dialog.ESC):
+            raise RuntimeError("Operation cancelled")
+        else:
+            reply = reply.strip()
+
+    elif uiMode & UserInterfaceMode.InteractionInput:
+        reply = str(
+            input(
+                f"{question}{f' ({default})' if (default is not None) and (defaultBehavior & UserInputDefaultsBehavior.DefaultsPrompt) else ''}: "
+            )
+        ).strip()
+        if (len(reply) == 0) and (default is not None) and (defaultBehavior & UserInputDefaultsBehavior.DefaultsAccept):
+            reply = default
+
     else:
-        return YesOrNo(question, default=default, forceInteraction=forceInteraction, clearScreen=clearScreen)
+        raise RuntimeError("No user interfaces available")
+
+    if clearScreen == True:
+        ClearScreen()
+
+    return reply
+
+
+###################################################################################################
+# get interactive password (without echoing)
+def AskForPassword(
+    prompt,
+    uiMode=UserInterfaceMode.InteractionDialog | UserInterfaceMode.InteractionInput,
+    clearScreen=False,
+):
+
+    if (uiMode & UserInterfaceMode.InteractionDialog) and (MainDialog is not None):
+        code, reply = MainDialog.passwordbox(prompt, insecure=True)
+        if (code == Dialog.CANCEL) or (code == Dialog.ESC):
+            raise RuntimeError("Operation cancelled")
+
+    elif uiMode & UserInterfaceMode.InteractionInput:
+        reply = getpass.getpass(prompt=f"{prompt}: ")
+
+    else:
+        raise RuntimeError("No user interfaces available")
+
+    if clearScreen == True:
+        ClearScreen()
+
+    return reply
 
 
 ###################################################################################################
@@ -184,37 +305,44 @@ def YesOrNo(question, default=None, forceInteraction=INTERACTION_NOT_FORCED, acc
 # selected/unselected state of each entry; can be True or False, 1 or 0, "on" or "off"
 # (True, 1 and "on" meaning selected), or any case variation of these two strings.
 # No more than one entry should be set to True.
-def ChooseOne(prompt, choices=[], forceInteraction=INTERACTION_NOT_FORCED, acceptDefault=False, clearScreen=False):
+def ChooseOne(
+    prompt,
+    choices=[],
+    defaultBehavior=UserInputDefaultsBehavior.DefaultsPrompt,
+    uiMode=UserInterfaceMode.InteractionDialog | UserInterfaceMode.InteractionInput,
+    clearScreen=False,
+):
 
     validChoices = [x for x in choices if len(x) == 3 and isinstance(x[0], str) and isinstance(x[2], bool)]
     defaulted = next(iter([x for x in validChoices if x[2] == True]), None)
 
-    if (acceptDefault == True) and (forceInteraction == INTERACTION_NOT_FORCED):
-        if defaulted is not None:
-            reply = defaulted[0]
-        else:
-            reply = ""
-
-    elif (MainDialog is not None) and (
-        isinstance(forceInteraction, bool) or (forceInteraction == INTERACTION_FORCE_DIALOG)
+    if (defaultBehavior & UserInputDefaultsBehavior.DefaultsAccept) and (
+        defaultBehavior & UserInputDefaultsBehavior.DefaultsNonInteractive
     ):
+        reply = defaulted[0] if defaulted is not None else ""
+
+    elif (uiMode & UserInterfaceMode.InteractionDialog) and (MainDialog is not None):
         code, reply = MainDialog.radiolist(
             prompt,
             choices=validChoices,
         )
         if code == Dialog.CANCEL or code == Dialog.ESC:
-            raise ValueError("Operation cancelled")
+            raise RuntimeError("Operation cancelled")
 
-    else:
+    elif uiMode & UserInterfaceMode.InteractionInput:
         index = 0
         for choice in validChoices:
             index = index + 1
             print(f"{index}: {choice[0]} - {choice[1]}")
         while True:
             inputRaw = input(
-                f"{prompt}{f' ({defaulted[0]})' if (defaulted is not None) and (acceptDefault == True) else ''}: "
+                f"{prompt}{f' ({defaulted[0]})' if (defaulted is not None) and (defaultBehavior & UserInputDefaultsBehavior.DefaultsPrompt) else ''}: "
             ).strip()
-            if (len(inputRaw) == 0) and (acceptDefault == True) and (defaulted is not None):
+            if (
+                (len(inputRaw) == 0)
+                and (defaulted is not None)
+                and (defaultBehavior & UserInputDefaultsBehavior.DefaultsAccept)
+            ):
                 reply = defaulted[0]
                 break
             elif (len(inputRaw) > 0) and inputRaw.isnumeric():
@@ -222,6 +350,9 @@ def ChooseOne(prompt, choices=[], forceInteraction=INTERACTION_NOT_FORCED, accep
                 if inputIndex > -1 and inputIndex < len(validChoices):
                     reply = validChoices[inputIndex][0]
                     break
+
+    else:
+        raise RuntimeError("No user interfaces available")
 
     if clearScreen == True:
         ClearScreen()
@@ -234,25 +365,31 @@ def ChooseOne(prompt, choices=[], forceInteraction=INTERACTION_NOT_FORCED, accep
 # choices - an iterable of (tag, item, status) tuples where status specifies the initial
 # selected/unselected state of each entry; can be True or False, 1 or 0, "on" or "off"
 # (True, 1 and "on" meaning selected), or any case variation of these two strings.
-def ChooseMultiple(prompt, choices=[], forceInteraction=INTERACTION_NOT_FORCED, acceptDefault=False, clearScreen=False):
+def ChooseMultiple(
+    prompt,
+    choices=[],
+    defaultBehavior=UserInputDefaultsBehavior.DefaultsPrompt,
+    uiMode=UserInterfaceMode.InteractionDialog | UserInterfaceMode.InteractionInput,
+    clearScreen=False,
+):
 
     validChoices = [x for x in choices if len(x) == 3 and isinstance(x[0], str) and isinstance(x[2], bool)]
     defaulted = [x[0] for x in validChoices if x[2] == True]
 
-    if (acceptDefault == True) and (forceInteraction == INTERACTION_NOT_FORCED):
+    if (defaultBehavior & UserInputDefaultsBehavior.DefaultsAccept) and (
+        defaultBehavior & UserInputDefaultsBehavior.DefaultsNonInteractive
+    ):
         reply = defaulted
 
-    elif (MainDialog is not None) and (
-        isinstance(forceInteraction, bool) or (forceInteraction == INTERACTION_FORCE_DIALOG)
-    ):
+    elif (uiMode & UserInterfaceMode.InteractionDialog) and (MainDialog is not None):
         code, reply = MainDialog.checklist(
             prompt,
             choices=validChoices,
         )
         if code == Dialog.CANCEL or code == Dialog.ESC:
-            raise ValueError("Operation cancelled")
+            raise RuntimeError("Operation cancelled")
 
-    else:
+    elif uiMode & UserInterfaceMode.InteractionInput:
         allowedChars = set(string.digits + ',' + ' ')
         defaultValListStr = ",".join(defaulted)
         print(f"0: NONE")
@@ -262,9 +399,13 @@ def ChooseMultiple(prompt, choices=[], forceInteraction=INTERACTION_NOT_FORCED, 
             print(f"{index}: {choice[0]} - {choice[1]}")
         while True:
             inputRaw = input(
-                f"{prompt}{f' ({defaultValListStr})' if (len(defaultValListStr) > 0) and (acceptDefault == True) else ''}: "
+                f"{prompt}{f' ({defaultValListStr})' if (len(defaultValListStr) > 0) and (defaultBehavior & UserInputDefaultsBehavior.DefaultsPrompt) else ''}: "
             ).strip()
-            if (len(inputRaw) == 0) and (acceptDefault == True) and (len(defaulted) > 0):
+            if (
+                (len(inputRaw) == 0)
+                and (len(defaulted) > 0)
+                and (defaultBehavior & UserInputDefaultsBehavior.DefaultsAccept)
+            ):
                 reply = defaulted
                 break
             elif inputRaw == '0':
@@ -279,73 +420,13 @@ def ChooseMultiple(prompt, choices=[], forceInteraction=INTERACTION_NOT_FORCED, 
                 if len(reply) > 0:
                     break
 
-    if clearScreen == True:
-        ClearScreen()
-
-    return reply
-
-
-###################################################################################################
-# get interactive user response
-def AskForString(
-    question, default=None, forceInteraction=INTERACTION_NOT_FORCED, acceptDefault=False, clearScreen=False
-):
-
-    if (acceptDefault == True) and (default is not None) and (forceInteraction == INTERACTION_NOT_FORCED):
-        reply = default
-
     else:
-        if (MainDialog is not None) and (
-            isinstance(forceInteraction, bool) or (forceInteraction == INTERACTION_FORCE_DIALOG)
-        ):
-            code, reply = MainDialog.inputbox(question, init=default if isinstance(default, str) else "")
-            if (code == Dialog.CANCEL) or (code == Dialog.ESC):
-                raise ValueError("Operation cancelled")
-            else:
-                reply = reply.strip()
-
-        else:
-            reply = str(
-                input(f"{question}{f' ({default})' if (default is not None) and (acceptDefault == True) else ''}: ")
-            ).strip()
-            if (len(reply) == 0) and (acceptDefault == True) and (default is not None):
-                reply = default
+        raise RuntimeError("No user interfaces available")
 
     if clearScreen == True:
         ClearScreen()
 
     return reply
-
-
-###################################################################################################
-# get interactive password (without echoing)
-def AskForPassword(prompt, forceInteraction=INTERACTION_FORCED, clearScreen=False):
-
-    if (MainDialog is not None) and (
-        isinstance(forceInteraction, bool) or (forceInteraction == INTERACTION_FORCE_DIALOG)
-    ):
-        code, reply = MainDialog.passwordbox(prompt, insecure=True)
-        if (code == Dialog.CANCEL) or (code == Dialog.ESC):
-            raise ValueError("Operation cancelled")
-
-    else:
-        reply = getpass.getpass(prompt=f"{prompt}: ")
-
-    if clearScreen == True:
-        ClearScreen()
-
-    return reply
-
-
-###################################################################################################
-# convenient boolean argument parsing
-def str2bool(v):
-    if v.lower() in ("yes", "true", "t", "y", "1"):
-        return True
-    elif v.lower() in ("no", "false", "f", "n", "0"):
-        return False
-    else:
-        raise ValueError("Boolean value expected")
 
 
 ###################################################################################################
