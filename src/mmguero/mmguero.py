@@ -249,7 +249,9 @@ def AskForString(
     elif (uiMode & UserInterfaceMode.InteractionDialog) and (MainDialog is not None):
         code, reply = MainDialog.inputbox(
             question,
-            init=default if (defaultBehavior & UserInputDefaultsBehavior.DefaultsPrompt) else "",
+            init=default
+            if (default is not None) and (defaultBehavior & UserInputDefaultsBehavior.DefaultsPrompt)
+            else "",
         )
         if (code == Dialog.CANCEL) or (code == Dialog.ESC):
             raise RuntimeError("Operation cancelled")
@@ -333,7 +335,9 @@ def ChooseOne(
         index = 0
         for choice in validChoices:
             index = index + 1
-            print(f"{index}: {choice[0]} - {choice[1]}")
+            print(
+                f"{index}: {choice[0]}{f' - {choice[1]}' if isinstance(choice[1], str) and len(choice[1]) > 0 else ''}"
+            )
         while True:
             inputRaw = input(
                 f"{prompt}{f' ({defaulted[0]})' if (defaulted is not None) and (defaultBehavior & UserInputDefaultsBehavior.DefaultsPrompt) else ''}: "
@@ -396,7 +400,9 @@ def ChooseMultiple(
         index = 0
         for choice in validChoices:
             index = index + 1
-            print(f"{index}: {choice[0]} - {choice[1]}")
+            print(
+                f"{index}: {choice[0]}{f' - {choice[1]}' if isinstance(choice[1], str) and len(choice[1]) > 0 else ''}"
+            )
         while True:
             inputRaw = input(
                 f"{prompt}{f' ({defaultValListStr})' if (len(defaultValListStr) > 0) and (defaultBehavior & UserInputDefaultsBehavior.DefaultsPrompt) else ''}: "
