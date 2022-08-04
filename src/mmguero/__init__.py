@@ -1,6 +1,6 @@
 """mmguero - Useful helpers by me, for me."""
 
-__version__ = "1.0.10"
+__version__ = "1.0.11"
 __author__ = "Seth Grover <mero.mero.guero@gmail.com>"
 __all__ = []
 

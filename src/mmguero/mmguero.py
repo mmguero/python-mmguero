@@ -636,12 +636,12 @@ def DoDynamicImport(importName, pipPkgName, interactive=False, debug=False):
 
 ###################################################################################################
 # download to file
-def DownloadToFile(url, local_filename, chunk_bytes=4096, interactive=False, debug=False):
+def DownloadToFile(url, local_filename, chunk_size=4096, interactive=False, debug=False):
     requests = DoDynamicImport("requests", "requests", interactive=interactive, debug=debug)
 
     r = requests.get(url, stream=True, allow_redirects=True)
     with open(local_filename, "wb") as f:
-        for chunk in r.iter_content(chunk_bytes=chunk_bytes):
+        for chunk in r.iter_content(chunk_size=chunk_size):
             if chunk:
                 f.write(chunk)
     fExists = os.path.isfile(local_filename)
