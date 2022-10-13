@@ -4,6 +4,7 @@
 import contextlib
 import getpass
 import importlib
+import itertools
 import json
 import os
 import platform
@@ -542,10 +543,16 @@ def RunProcess(
 
     retcode = -1
     output = []
+    flat_command = list(itertools.chain(*command))
 
     try:
         # run the command
-        retcode, cmdout, cmderr = CheckOutputInput(command, input=stdin.encode() if stdin else stdin, cwd=cwd, env=env)
+        retcode, cmdout, cmderr = CheckOutputInput(
+            flat_command,
+            input=stdin.encode() if stdin else stdin,
+            cwd=cwd,
+            env=env,
+        )
 
         # split the output on newlines to return a list
         if stderr and (len(cmderr) > 0):
@@ -555,15 +562,25 @@ def RunProcess(
 
     except (FileNotFoundError, OSError, IOError) as e:
         if stderr:
-            output.append(f"Command {command} not found or unable to execute")
+            output.append(f"Command {flat_command} not found or unable to execute")
 
     if debug:
-        eprint(f"{command}({stdin[:80] + bool(stdin[80:]) * '...' if stdin else ''}) returned {retcode}: {output}")
+        eprint(f"{flat_command}({stdin[:80] + bool(stdin[80:]) * '...' if stdin else ''}) returned {retcode}: {output}")
 
     if (retcode != 0) and retry and (retry > 0):
         # sleep then retry
         time.sleep(retrySleepSec)
-        return RunProcess(command, stdout, stderr, stdin, retry - 1, retrySleepSec, cwd, env, debug)
+        return RunProcess(
+            command,
+            stdout,
+            stderr,
+            stdin,
+            retry - 1,
+            retrySleepSec,
+            cwd,
+            env,
+            debug,
+        )
     else:
         return retcode, output
 
