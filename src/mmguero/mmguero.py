@@ -145,6 +145,17 @@ def DeepGet(d, keys, default=None):
 
 
 ###################################################################################################
+# flatten a collection, but don't split strings
+def Flatten(coll):
+    for i in coll:
+        if isinstance(i, Iterable) and not isinstance(i, str):
+            for subc in Flatten(i):
+                yield subc
+        else:
+            yield i
+
+
+###################################################################################################
 # if the object is an iterable, return it, otherwise return a tuple with it as a single element.
 # useful if you want to user either a scalar or an array in a loop, etc.
 def GetIterable(x):
@@ -543,7 +554,7 @@ def RunProcess(
 
     retcode = -1
     output = []
-    flat_command = list(itertools.chain(*command))
+    flat_command = list(Flatten(GetIterable(command)))
 
     try:
         # run the command
