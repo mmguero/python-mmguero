@@ -6,6 +6,7 @@
 
 * `AskForPassword` - get interactive password (without echoing)
 * `AskForString` - get interactive user response
+* `AtomicInt` - atomic integer class and context manager
 * `Base64DecodeIfPrefixed`- decode a string as base64 only if it starts with `base64:`, otherwise just return
 * `CaselessDictionary` - dictionary that enables case insensitive searching while preserving case sensitivity when keys are listed
 * `CheckOutputInput` - run command with arguments and return its exit code, stdout, and stderr
@@ -16,6 +17,7 @@
 * `DoDynamicImport` - attempt dynamic imports, prompting for install via pip if possible
 * `DownloadToFile` - download a URL to a local file
 * `eprint` - print to stderr
+* `Flatten` - flatten a collection, but don't split strings
 * `GetIterable` - return an iterable for an iterable (as-is) or a scalar (as a single element in a tuple)
 * `GitClone` - create a local git clone
 * `LoadFileIfJson` - does this file contain valid json? if so, load and return it
