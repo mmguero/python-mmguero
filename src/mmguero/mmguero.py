@@ -26,21 +26,21 @@ from threading import Lock
 
 try:
     from pwd import getpwuid
-except ImportError:
+except Exception:
     getpwuid = None
 
 try:
     from shutil import which
 
     HasWhich = True
-except ImportError:
+except Exception:
     HasWhich = False
 
 try:
     from dialog import Dialog
 
     MainDialog = Dialog(dialog='dialog', autowidgetsize=True)
-except ImportError:
+except Exception:
     Dialog = None
     MainDialog = None
 
@@ -912,7 +912,7 @@ def DoDynamicImport(importName, pipPkgName, interactive=False, debug=False):
             if tmpImport:
                 DynImports[importName] = tmpImport
                 return DynImports[importName]
-        except ImportError:
+        except Exception:
             pass
 
         # see if we can help out by installing the module
@@ -948,7 +948,7 @@ def DoDynamicImport(importName, pipPkgName, interactive=False, debug=False):
                         tmpImport = importlib.import_module(importName)
                         if tmpImport:
                             DynImports[importName] = tmpImport
-                    except ImportError as e:
+                    except Exception:
                         eprint(f"Importing the {importName} module still failed: {e}")
                 else:
                     eprint(f"Installation of {importName} module failed: {out}")
