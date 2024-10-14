@@ -16,12 +16,16 @@ import tempfile
 import time
 
 from base64 import b64decode
-from collections import defaultdict
-from collections.abc import Iterable
+
+try:
+    from collections.abc import Iterable
+except ImportError:
+    from collections import Iterable
+from collections import defaultdict, namedtuple, OrderedDict
 from datetime import datetime
 from enum import IntFlag, auto
 from multiprocessing import RawValue
-from subprocess import PIPE, Popen, CalledProcessError
+from subprocess import PIPE, Popen, CalledProcessError, run as SubProcessRun
 from threading import Lock
 
 try:
@@ -36,13 +40,8 @@ try:
 except Exception:
     HasWhich = False
 
-try:
-    from dialog import Dialog
-
-    MainDialog = Dialog(dialog='dialog', autowidgetsize=True)
-except Exception:
-    Dialog = None
-    MainDialog = None
+Dialog = None
+MainDialog = None
 
 ###################################################################################################
 PLATFORM_WINDOWS = "Windows"
@@ -56,6 +55,23 @@ PLATFORM_LINUX_RASPBIAN = "raspbian"
 
 
 ###################################################################################################
+def DialogInit():
+    global Dialog
+    global MainDialog
+    try:
+        if not Dialog:
+            from dialog import Dialog
+
+        if not MainDialog:
+            MainDialog = Dialog(dialog='dialog', autowidgetsize=True)
+    except ImportError:
+        Dialog = None
+        MainDialog = None
+
+
+DialogInit()
+
+
 class UserInputDefaultsBehavior(IntFlag):
     DefaultsPrompt = auto()
     DefaultsAccept = auto()
@@ -65,6 +81,20 @@ class UserInputDefaultsBehavior(IntFlag):
 class UserInterfaceMode(IntFlag):
     InteractionDialog = auto()
     InteractionInput = auto()
+
+
+class DialogBackException(Exception):
+    pass
+
+
+class DialogCanceledException(Exception):
+    pass
+
+
+class BoolOrExtra(IntEnum):
+    FALSE = 0
+    TRUE = 1
+    EXTRA = 2
 
 
 ###################################################################################################
@@ -93,6 +123,22 @@ class AtomicInt:
 
     def __exit__(self, type, value, traceback):
         return self.decrement()
+
+
+###################################################################################################
+# an OrderedDict that locks itself and unlocks itself as a context manager
+class ContextLockedOrderedDict(OrderedDict):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.lock = Lock()
+
+    def __enter__(self):
+        self.lock.acquire()
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.lock.release()
+        return self
 
 
 ###################################################################################################
@@ -125,6 +171,30 @@ def TemporaryFilename(suffix=None):
 def Touch(filename):
     open(filename, 'a').close()
     os.utime(filename, None)
+
+
+###################################################################################################
+# append strings to a text file
+def AppendToFile(filename, value):
+    with open(filename, "a") as f:
+        if isinstance(value, Iterable) and not isinstance(value, str):
+            f.write('\n'.join(value))
+        else:
+            f.write(value)
+
+
+###################################################################################################
+# "pop" lines from the beginning of a file
+def PopLine(fileName, count=1):
+    result = []
+    with open(fileName, 'r+') as f:
+        for i in range(0, count):
+            result.append(f.readline())
+        data = f.read()
+        f.seek(0)
+        f.write(data)
+        f.truncate()
+    return result if (len(result) != 1) else result[0]
 
 
 ###################################################################################################
@@ -193,6 +263,22 @@ def str2bool(v):
             raise ValueError("Boolean value expected")
     else:
         raise ValueError("Boolean value expected")
+
+
+def str2boolorextra(v):
+    if isinstance(v, bool):
+        return BoolOrExtra.TRUE if v else BoolOrExtra.FALSE
+    elif isinstance(v, str):
+        if v.lower() in ("yes", "true", "t", "y", "1"):
+            return BoolOrExtra.TRUE
+        elif v.lower() in ("no", "false", "f", "n", "0"):
+            return BoolOrExtra.FALSE
+        elif v.lower() in ("b", "back", "p", "previous", "e", "extra"):
+            return BoolOrExtra.EXTRA
+        else:
+            raise ValueError("BoolOrExtra value expected")
+    else:
+        raise ValueError("BoolOrExtra value expected")
 
 
 ###################################################################################################
@@ -359,7 +445,14 @@ def YesOrNo(
     defaultBehavior=UserInputDefaultsBehavior.DefaultsPrompt,
     uiMode=UserInterfaceMode.InteractionDialog | UserInterfaceMode.InteractionInput,
     clearScreen=False,
+    yesLabel='Yes',
+    noLabel='No',
+    extraLabel=None,
 ):
+    global Dialog
+    global MainDialog
+    result = None
+
     if (default is not None) and (
         (defaultBehavior & UserInputDefaultsBehavior.DefaultsAccept)
         and (defaultBehavior & UserInputDefaultsBehavior.DefaultsNonInteractive)
@@ -367,29 +460,42 @@ def YesOrNo(
         reply = ""
 
     elif (uiMode & UserInterfaceMode.InteractionDialog) and (MainDialog is not None):
-        defaultYes = (default is not None) and str2bool(default)
+        defaultYes = (default is not None) and str2boolorextra(default)
+        # by default the "extra" button is between "Yes" and "No" which looks janky, IMO.
+        #   so we're going to switch things around a bit.
+        yesLabelTmp = yesLabel.capitalize() if defaultYes else noLabel.capitalize()
+        noLabelTmp = noLabel.capitalize() if defaultYes else yesLabel.capitalize()
+        replyMap = {}
+        if hasExtraLabel := (extraLabel is not None):
+            replyMap[Dialog.EXTRA] = Dialog.CANCEL
+            replyMap[Dialog.CANCEL] = Dialog.EXTRA
         reply = MainDialog.yesno(
-            question, yes_label='Yes' if defaultYes else 'No', no_label='no' if defaultYes else 'yes'
+            str(question),
+            yes_label=str(yesLabelTmp),
+            no_label=str(extraLabel) if hasExtraLabel else str(noLabelTmp),
+            extra_button=hasExtraLabel,
+            extra_label=str(noLabelTmp) if hasExtraLabel else str(extraLabel),
         )
+        reply = replyMap.get(reply, reply)
         if defaultYes:
-            reply = 'y' if (reply == Dialog.OK) else 'n'
+            reply = 'y' if (reply == Dialog.OK) else ('e' if (reply == Dialog.EXTRA) else 'n')
         else:
-            reply = 'n' if (reply == Dialog.OK) else 'y'
+            reply = 'n' if (reply == Dialog.OK) else ('e' if (reply == Dialog.EXTRA) else 'y')
 
     elif uiMode & UserInterfaceMode.InteractionInput:
         if (default is not None) and defaultBehavior & UserInputDefaultsBehavior.DefaultsPrompt:
-            if str2bool(default):
-                questionStr = f"\n{question} (Y/n): "
+            if str2boolorextra(default):
+                questionStr = f"\n{question} (Y{'' if yesLabel == 'Yes' else ' (' + yesLabel + ')'} / n{'' if noLabel == 'No' else ' (' + noLabel + ')'}): "
             else:
-                questionStr = f"\n{question} (y/N): "
+                questionStr = f"\n{question} (y{'' if yesLabel == 'Yes' else ' (' + yesLabel + ')'} / N{'' if noLabel == 'No' else ' (' + noLabel + ')'}): "
         else:
-            questionStr = f"\n{question}: "
+            questionStr = f"\n{question} (Y{'' if yesLabel == 'Yes' else ' (' + yesLabel + ')'} / N{'' if noLabel == 'No' else ' (' + noLabel + ')'}): "
 
         while True:
             reply = str(input(questionStr)).lower().strip()
             if len(reply) > 0:
                 try:
-                    str2bool(reply)
+                    str2boolorextra(reply)
                     break
                 except ValueError:
                     pass
@@ -400,21 +506,29 @@ def YesOrNo(
         raise RuntimeError("No user interfaces available")
 
     if (len(reply) == 0) and (defaultBehavior & UserInputDefaultsBehavior.DefaultsAccept):
-        reply = "y" if (default is not None) and str2bool(default) else "n"
+        reply = "y" if (default is not None) and str2boolorextra(default) else "n"
 
     if clearScreen is True:
         ClearScreen()
 
     try:
-        return str2bool(reply)
+        result = str2boolorextra(reply)
     except ValueError:
-        return YesOrNo(
+        result = YesOrNo(
             question,
             default=default,
             uiMode=uiMode,
             defaultBehavior=defaultBehavior - UserInputDefaultsBehavior.DefaultsAccept,
             clearScreen=clearScreen,
+            yesLabel=yesLabel,
+            noLabel=noLabel,
+            extraLabel=extraLabel,
         )
+
+    if result == BoolOrExtra.EXTRA:
+        raise DialogBackException(question)
+
+    return bool(result)
 
 
 ###################################################################################################
@@ -425,7 +539,11 @@ def AskForString(
     defaultBehavior=UserInputDefaultsBehavior.DefaultsPrompt,
     uiMode=UserInterfaceMode.InteractionDialog | UserInterfaceMode.InteractionInput,
     clearScreen=False,
+    extraLabel=None,
 ):
+    global Dialog
+    global MainDialog
+
     if (default is not None) and (
         (defaultBehavior & UserInputDefaultsBehavior.DefaultsAccept)
         and (defaultBehavior & UserInputDefaultsBehavior.DefaultsNonInteractive)
@@ -434,13 +552,19 @@ def AskForString(
 
     elif (uiMode & UserInterfaceMode.InteractionDialog) and (MainDialog is not None):
         code, reply = MainDialog.inputbox(
-            question,
-            init=default
-            if (default is not None) and (defaultBehavior & UserInputDefaultsBehavior.DefaultsPrompt)
-            else "",
+            str(question),
+            init=(
+                default
+                if (default is not None) and (defaultBehavior & UserInputDefaultsBehavior.DefaultsPrompt)
+                else ""
+            ),
+            extra_button=(extraLabel is not None),
+            extra_label=str(extraLabel),
         )
         if (code == Dialog.CANCEL) or (code == Dialog.ESC):
-            raise RuntimeError("Operation cancelled")
+            raise DialogCanceledException(question)
+        elif code == Dialog.EXTRA:
+            raise DialogBackException(question)
         else:
             reply = reply.strip()
 
@@ -466,13 +590,32 @@ def AskForString(
 # get interactive password (without echoing)
 def AskForPassword(
     prompt,
+    default=None,
+    defaultBehavior=UserInputDefaultsBehavior.DefaultsPrompt,
     uiMode=UserInterfaceMode.InteractionDialog | UserInterfaceMode.InteractionInput,
     clearScreen=False,
+    extraLabel=None,
 ):
-    if (uiMode & UserInterfaceMode.InteractionDialog) and (MainDialog is not None):
-        code, reply = MainDialog.passwordbox(prompt, insecure=True)
+    global Dialog
+    global MainDialog
+
+    if (default is not None) and (
+        (defaultBehavior & UserInputDefaultsBehavior.DefaultsAccept)
+        and (defaultBehavior & UserInputDefaultsBehavior.DefaultsNonInteractive)
+    ):
+        reply = default
+
+    elif (uiMode & UserInterfaceMode.InteractionDialog) and (MainDialog is not None):
+        code, reply = MainDialog.passwordbox(
+            str(prompt),
+            insecure=True,
+            extra_button=(extraLabel is not None),
+            extra_label=str(extraLabel),
+        )
         if (code == Dialog.CANCEL) or (code == Dialog.ESC):
-            raise RuntimeError("Operation cancelled")
+            raise DialogCanceledException(prompt)
+        elif code == Dialog.EXTRA:
+            raise DialogBackException(prompt)
 
     elif uiMode & UserInterfaceMode.InteractionInput:
         reply = getpass.getpass(prompt=f"{prompt}: ")
@@ -498,7 +641,11 @@ def ChooseOne(
     defaultBehavior=UserInputDefaultsBehavior.DefaultsPrompt,
     uiMode=UserInterfaceMode.InteractionDialog | UserInterfaceMode.InteractionInput,
     clearScreen=False,
+    extraLabel=None,
 ):
+    global Dialog
+    global MainDialog
+
     validChoices = [x for x in choices if len(x) == 3 and isinstance(x[0], str) and isinstance(x[2], bool)]
     defaulted = next(iter([x for x in validChoices if x[2] is True]), None)
 
@@ -509,11 +656,15 @@ def ChooseOne(
 
     elif (uiMode & UserInterfaceMode.InteractionDialog) and (MainDialog is not None):
         code, reply = MainDialog.radiolist(
-            prompt,
+            str(prompt),
             choices=validChoices,
+            extra_button=(extraLabel is not None),
+            extra_label=str(extraLabel),
         )
         if code == Dialog.CANCEL or code == Dialog.ESC:
-            raise RuntimeError("Operation cancelled")
+            raise DialogCanceledException(prompt)
+        elif code == Dialog.EXTRA:
+            raise DialogBackException(prompt)
 
     elif uiMode & UserInterfaceMode.InteractionInput:
         index = 0
@@ -559,7 +710,11 @@ def ChooseMultiple(
     defaultBehavior=UserInputDefaultsBehavior.DefaultsPrompt,
     uiMode=UserInterfaceMode.InteractionDialog | UserInterfaceMode.InteractionInput,
     clearScreen=False,
+    extraLabel=None,
 ):
+    global Dialog
+    global MainDialog
+
     validChoices = [x for x in choices if len(x) == 3 and isinstance(x[0], str) and isinstance(x[2], bool)]
     defaulted = [x[0] for x in validChoices if x[2] is True]
 
@@ -570,11 +725,15 @@ def ChooseMultiple(
 
     elif (uiMode & UserInterfaceMode.InteractionDialog) and (MainDialog is not None):
         code, reply = MainDialog.checklist(
-            prompt,
+            str(prompt),
             choices=validChoices,
+            extra_button=(extraLabel is not None),
+            extra_label=str(extraLabel),
         )
         if code == Dialog.CANCEL or code == Dialog.ESC:
-            raise RuntimeError("Operation cancelled")
+            raise DialogCanceledException(prompt)
+        elif code == Dialog.EXTRA:
+            raise DialogBackException(prompt)
 
     elif uiMode & UserInterfaceMode.InteractionInput:
         allowedChars = set(string.digits + ',' + ' ')
@@ -625,7 +784,11 @@ def DisplayMessage(
     defaultBehavior=UserInputDefaultsBehavior.DefaultsPrompt,
     uiMode=UserInterfaceMode.InteractionDialog | UserInterfaceMode.InteractionInput,
     clearScreen=False,
+    extraLabel=None,
 ):
+    global Dialog
+    global MainDialog
+
     reply = False
 
     if (defaultBehavior & UserInputDefaultsBehavior.DefaultsAccept) and (
@@ -635,10 +798,14 @@ def DisplayMessage(
 
     elif (uiMode & UserInterfaceMode.InteractionDialog) and (MainDialog is not None):
         code = MainDialog.msgbox(
-            message,
+            str(message),
+            extra_button=(extraLabel is not None),
+            extra_label=str(extraLabel),
         )
         if (code == Dialog.CANCEL) or (code == Dialog.ESC):
-            raise RuntimeError("Operation cancelled")
+            raise DialogCanceledException(message)
+        elif code == Dialog.EXTRA:
+            raise DialogBackException(message)
         else:
             reply = True
 
@@ -660,7 +827,11 @@ def DisplayProgramBox(
     fileDescriptor=None,
     text=None,
     clearScreen=False,
+    extraLabel=None,
 ):
+    global Dialog
+    global MainDialog
+
     reply = False
 
     if MainDialog is not None:
@@ -671,9 +842,13 @@ def DisplayProgramBox(
             text=text,
             width=78,
             height=20,
+            extra_button=(extraLabel is not None),
+            extra_label=str(extraLabel),
         )
         if (code == Dialog.CANCEL) or (code == Dialog.ESC):
-            raise RuntimeError("Operation cancelled")
+            raise DialogCanceledException()
+        elif code == Dialog.EXTRA:
+            raise DialogBackException()
         else:
             reply = True
 
@@ -792,12 +967,31 @@ def LoadStrIfJson(jsonStr):
 
 ###################################################################################################
 # attempt to decode a file (given by handle) as JSON, returning the object if it decodes and
-# None otherwise
-def LoadFileIfJson(fileHandle):
-    try:
-        return json.load(fileHandle)
-    except ValueError:
-        return None
+# None otherwise. Also, if attemptLines=True, attempt to handle cases of a file containing
+# individual lines of valid JSON.
+def LoadFileIfJson(fileHandle, attemptLines=False):
+    if fileHandle is not None:
+
+        try:
+            result = json.load(fileHandle)
+        except ValueError:
+            result = None
+
+        if (result is None) and attemptLines:
+            fileHandle.seek(0)
+            result = []
+            for line in fileHandle:
+                try:
+                    result.append(json.loads(line))
+                except ValueError:
+                    pass
+            if not result:
+                result = None
+
+    else:
+        result = None
+
+    return result
 
 
 ###################################################################################################
@@ -894,6 +1088,29 @@ def RunProcess(
         )
     else:
         return retcode, output
+
+
+###################################################################################################
+# execute a shell process returning its exit code and output
+def RunSubProcess(command, stdout=True, stderr=False, stdin=None, timeout=60):
+    retcode = -1
+    output = []
+    p = SubProcessRun(
+        [command],
+        input=stdin,
+        universal_newlines=True,
+        capture_output=True,
+        shell=True,
+        timeout=timeout,
+    )
+    if p:
+        retcode = p.returncode
+        if stderr and p.stderr:
+            output.extend(p.stderr.splitlines())
+        if stdout and p.stdout:
+            output.extend(p.stdout.splitlines())
+
+    return retcode, output
 
 
 ###################################################################################################
@@ -1007,6 +1224,18 @@ def GitClone(
             "no-tags": noTags,
         },
     )
+
+
+###################################################################################################
+# "chown -R" a file or directory
+def ChownRecursive(path, uid, gid):
+    os.chown(path, int(uid), int(gid))
+    if os.path.isdir(path):
+        for dirpath, dirnames, filenames in os.walk(path, followlinks=False):
+            for dname in dirnames:
+                os.chown(os.path.join(dirpath, dname), int(uid), int(gid))
+            for fname in filenames:
+                os.chown(os.path.join(dirpath, fname), int(uid), int(gid), follow_symlinks=False)
 
 
 ###################################################################################################
