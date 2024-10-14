@@ -23,7 +23,7 @@ except ImportError:
     from collections import Iterable
 from collections import defaultdict, namedtuple, OrderedDict
 from datetime import datetime
-from enum import IntFlag, auto
+from enum import IntEnum, IntFlag, auto
 from multiprocessing import RawValue
 from subprocess import PIPE, Popen, CalledProcessError, run as SubProcessRun
 from threading import Lock
