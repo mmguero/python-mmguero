@@ -18,7 +18,7 @@
 * `ClearScreen` - attempt to clear the screen with `clear` (\*NIX) or `cls` (Windows)
 * `ContainsWhitespace` - check if any character in a string is whitespace
 * `ContextLockedOrderedDict` - an OrderedDict that locks itself and unlocks itself as a context manager
-* `CustomMakeTranslation`
+* `CustomMakeTranslation` - Replace substrings based on a dictionary of mappings
 * `DeepGet` - safe deep get for a dictionary
 * `DeepSet` - convenience routine for setting-getting a value into a dictionary
 * `DictSearch` - recursive dictionary key search

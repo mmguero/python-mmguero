@@ -10,7 +10,7 @@ class CaselessDictionary(dict):
             for key, value in initval.items():
                 self.__setitem__(key, value)
         elif isinstance(initval, list):
-            for (key, value) in initval:
+            for key, value in initval:
                 self.__setitem__(key, value)
 
     def __repr__(self):

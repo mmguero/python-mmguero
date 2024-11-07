@@ -36,12 +36,12 @@ except Exception:
 try:
     from shutil import which
 
-    HasWhich = True
+    _HasWhich = True
 except Exception:
-    HasWhich = False
+    _HasWhich = False
 
-Dialog = None
-MainDialog = None
+_Dialog = None
+_MainDialog = None
 
 ###################################################################################################
 PLATFORM_WINDOWS = "Windows"
@@ -55,21 +55,21 @@ PLATFORM_LINUX_RASPBIAN = "raspbian"
 
 
 ###################################################################################################
-def DialogInit():
-    global Dialog
-    global MainDialog
+def _DialogInit():
+    global _Dialog
+    global _MainDialog
     try:
-        if not Dialog:
-            from dialog import Dialog
+        if not _Dialog:
+            from dialog import dialog as _Dialog
 
-        if not MainDialog:
-            MainDialog = Dialog(dialog='dialog', autowidgetsize=True)
+        if not _MainDialog:
+            _MainDialog = _Dialog(dialog='dialog', autowidgetsize=True)
     except ImportError:
-        Dialog = None
-        MainDialog = None
+        _Dialog = None
+        _MainDialog = None
 
 
-DialogInit()
+_DialogInit()
 
 
 class UserInputDefaultsBehavior(IntFlag):
@@ -83,11 +83,11 @@ class UserInterfaceMode(IntFlag):
     InteractionInput = auto()
 
 
-class DialogBackException(Exception):
+class _DialogBackException(Exception):
     pass
 
 
-class DialogCanceledException(Exception):
+class _DialogCanceledException(Exception):
     pass
 
 
@@ -332,14 +332,14 @@ def EscapeAnsi(line):
 # EVP_BytesToKey - create key compatible with openssl enc
 # reference: https://github.com/openssl/openssl/blob/6f0ac0e2f27d9240516edb9a23b7863e7ad02898/crypto/evp/evp_key.c#L74
 #            https://gist.github.com/chrono-meter/d122cbefc6f6248a0af554995f072460
-EVP_KEY_SIZE = 32
-OPENSSL_ENC_MAGIC = b'Salted__'
-PKCS5_SALT_LEN = 8
+_EVP_KEY_SIZE = 32
+_OPENSSL_ENC_MAGIC = b'Salted__'
+_PKCS5_SALT_LEN = 8
 
 
 def EVP_BytesToKey(key_length: int, iv_length: int, md, salt: bytes, data: bytes, count: int = 1) -> (bytes, bytes):
     assert data
-    assert salt == b'' or len(salt) == PKCS5_SALT_LEN
+    assert salt == b'' or len(salt) == _PKCS5_SALT_LEN
 
     md_buf = b''
     key = b''
@@ -449,8 +449,8 @@ def YesOrNo(
     noLabel='No',
     extraLabel=None,
 ):
-    global Dialog
-    global MainDialog
+    global _Dialog
+    global _MainDialog
     result = None
 
     if (default is not None) and (
@@ -459,7 +459,7 @@ def YesOrNo(
     ):
         reply = ""
 
-    elif (uiMode & UserInterfaceMode.InteractionDialog) and (MainDialog is not None):
+    elif (uiMode & UserInterfaceMode.InteractionDialog) and (_MainDialog is not None):
         defaultYes = (default is not None) and str2boolorextra(default)
         # by default the "extra" button is between "Yes" and "No" which looks janky, IMO.
         #   so we're going to switch things around a bit.
@@ -467,9 +467,9 @@ def YesOrNo(
         noLabelTmp = noLabel.capitalize() if defaultYes else yesLabel.capitalize()
         replyMap = {}
         if hasExtraLabel := (extraLabel is not None):
-            replyMap[Dialog.EXTRA] = Dialog.CANCEL
-            replyMap[Dialog.CANCEL] = Dialog.EXTRA
-        reply = MainDialog.yesno(
+            replyMap[_Dialog.EXTRA] = _Dialog.CANCEL
+            replyMap[_Dialog.CANCEL] = _Dialog.EXTRA
+        reply = _MainDialog.yesno(
             str(question),
             yes_label=str(yesLabelTmp),
             no_label=str(extraLabel) if hasExtraLabel else str(noLabelTmp),
@@ -478,9 +478,9 @@ def YesOrNo(
         )
         reply = replyMap.get(reply, reply)
         if defaultYes:
-            reply = 'y' if (reply == Dialog.OK) else ('e' if (reply == Dialog.EXTRA) else 'n')
+            reply = 'y' if (reply == _Dialog.OK) else ('e' if (reply == _Dialog.EXTRA) else 'n')
         else:
-            reply = 'n' if (reply == Dialog.OK) else ('e' if (reply == Dialog.EXTRA) else 'y')
+            reply = 'n' if (reply == _Dialog.OK) else ('e' if (reply == _Dialog.EXTRA) else 'y')
 
     elif uiMode & UserInterfaceMode.InteractionInput:
         if (default is not None) and defaultBehavior & UserInputDefaultsBehavior.DefaultsPrompt:
@@ -526,7 +526,7 @@ def YesOrNo(
         )
 
     if result == BoolOrExtra.EXTRA:
-        raise DialogBackException(question)
+        raise _DialogBackException(question)
 
     return bool(result)
 
@@ -541,8 +541,8 @@ def AskForString(
     clearScreen=False,
     extraLabel=None,
 ):
-    global Dialog
-    global MainDialog
+    global _Dialog
+    global _MainDialog
 
     if (default is not None) and (
         (defaultBehavior & UserInputDefaultsBehavior.DefaultsAccept)
@@ -550,8 +550,8 @@ def AskForString(
     ):
         reply = default
 
-    elif (uiMode & UserInterfaceMode.InteractionDialog) and (MainDialog is not None):
-        code, reply = MainDialog.inputbox(
+    elif (uiMode & UserInterfaceMode.InteractionDialog) and (_MainDialog is not None):
+        code, reply = _MainDialog.inputbox(
             str(question),
             init=(
                 default
@@ -561,10 +561,10 @@ def AskForString(
             extra_button=(extraLabel is not None),
             extra_label=str(extraLabel),
         )
-        if (code == Dialog.CANCEL) or (code == Dialog.ESC):
-            raise DialogCanceledException(question)
-        elif code == Dialog.EXTRA:
-            raise DialogBackException(question)
+        if (code == _Dialog.CANCEL) or (code == _Dialog.ESC):
+            raise _DialogCanceledException(question)
+        elif code == _Dialog.EXTRA:
+            raise _DialogBackException(question)
         else:
             reply = reply.strip()
 
@@ -596,8 +596,8 @@ def AskForPassword(
     clearScreen=False,
     extraLabel=None,
 ):
-    global Dialog
-    global MainDialog
+    global _Dialog
+    global _MainDialog
 
     if (default is not None) and (
         (defaultBehavior & UserInputDefaultsBehavior.DefaultsAccept)
@@ -605,17 +605,17 @@ def AskForPassword(
     ):
         reply = default
 
-    elif (uiMode & UserInterfaceMode.InteractionDialog) and (MainDialog is not None):
-        code, reply = MainDialog.passwordbox(
+    elif (uiMode & UserInterfaceMode.InteractionDialog) and (_MainDialog is not None):
+        code, reply = _MainDialog.passwordbox(
             str(prompt),
             insecure=True,
             extra_button=(extraLabel is not None),
             extra_label=str(extraLabel),
         )
-        if (code == Dialog.CANCEL) or (code == Dialog.ESC):
-            raise DialogCanceledException(prompt)
-        elif code == Dialog.EXTRA:
-            raise DialogBackException(prompt)
+        if (code == _Dialog.CANCEL) or (code == _Dialog.ESC):
+            raise _DialogCanceledException(prompt)
+        elif code == _Dialog.EXTRA:
+            raise _DialogBackException(prompt)
 
     elif uiMode & UserInterfaceMode.InteractionInput:
         reply = getpass.getpass(prompt=f"{prompt}: ")
@@ -643,8 +643,8 @@ def ChooseOne(
     clearScreen=False,
     extraLabel=None,
 ):
-    global Dialog
-    global MainDialog
+    global _Dialog
+    global _MainDialog
 
     validChoices = [x for x in choices if len(x) == 3 and isinstance(x[0], str) and isinstance(x[2], bool)]
     defaulted = next(iter([x for x in validChoices if x[2] is True]), None)
@@ -654,17 +654,17 @@ def ChooseOne(
     ):
         reply = defaulted[0] if defaulted is not None else ""
 
-    elif (uiMode & UserInterfaceMode.InteractionDialog) and (MainDialog is not None):
-        code, reply = MainDialog.radiolist(
+    elif (uiMode & UserInterfaceMode.InteractionDialog) and (_MainDialog is not None):
+        code, reply = _MainDialog.radiolist(
             str(prompt),
             choices=validChoices,
             extra_button=(extraLabel is not None),
             extra_label=str(extraLabel),
         )
-        if code == Dialog.CANCEL or code == Dialog.ESC:
-            raise DialogCanceledException(prompt)
-        elif code == Dialog.EXTRA:
-            raise DialogBackException(prompt)
+        if code == _Dialog.CANCEL or code == _Dialog.ESC:
+            raise _DialogCanceledException(prompt)
+        elif code == _Dialog.EXTRA:
+            raise _DialogBackException(prompt)
 
     elif uiMode & UserInterfaceMode.InteractionInput:
         index = 0
@@ -712,8 +712,8 @@ def ChooseMultiple(
     clearScreen=False,
     extraLabel=None,
 ):
-    global Dialog
-    global MainDialog
+    global _Dialog
+    global _MainDialog
 
     validChoices = [x for x in choices if len(x) == 3 and isinstance(x[0], str) and isinstance(x[2], bool)]
     defaulted = [x[0] for x in validChoices if x[2] is True]
@@ -723,17 +723,17 @@ def ChooseMultiple(
     ):
         reply = defaulted
 
-    elif (uiMode & UserInterfaceMode.InteractionDialog) and (MainDialog is not None):
-        code, reply = MainDialog.checklist(
+    elif (uiMode & UserInterfaceMode.InteractionDialog) and (_MainDialog is not None):
+        code, reply = _MainDialog.checklist(
             str(prompt),
             choices=validChoices,
             extra_button=(extraLabel is not None),
             extra_label=str(extraLabel),
         )
-        if code == Dialog.CANCEL or code == Dialog.ESC:
-            raise DialogCanceledException(prompt)
-        elif code == Dialog.EXTRA:
-            raise DialogBackException(prompt)
+        if code == _Dialog.CANCEL or code == _Dialog.ESC:
+            raise _DialogCanceledException(prompt)
+        elif code == _Dialog.EXTRA:
+            raise _DialogBackException(prompt)
 
     elif uiMode & UserInterfaceMode.InteractionInput:
         allowedChars = set(string.digits + ',' + ' ')
@@ -786,8 +786,8 @@ def DisplayMessage(
     clearScreen=False,
     extraLabel=None,
 ):
-    global Dialog
-    global MainDialog
+    global _Dialog
+    global _MainDialog
 
     reply = False
 
@@ -796,16 +796,16 @@ def DisplayMessage(
     ):
         reply = True
 
-    elif (uiMode & UserInterfaceMode.InteractionDialog) and (MainDialog is not None):
-        code = MainDialog.msgbox(
+    elif (uiMode & UserInterfaceMode.InteractionDialog) and (_MainDialog is not None):
+        code = _MainDialog.msgbox(
             str(message),
             extra_button=(extraLabel is not None),
             extra_label=str(extraLabel),
         )
-        if (code == Dialog.CANCEL) or (code == Dialog.ESC):
-            raise DialogCanceledException(message)
-        elif code == Dialog.EXTRA:
-            raise DialogBackException(message)
+        if (code == _Dialog.CANCEL) or (code == _Dialog.ESC):
+            raise _DialogCanceledException(message)
+        elif code == _Dialog.EXTRA:
+            raise _DialogBackException(message)
         else:
             reply = True
 
@@ -820,7 +820,7 @@ def DisplayMessage(
 
 
 ###################################################################################################
-# display streaming content via Dialog.programbox
+# display streaming content via _Dialog.programbox
 def DisplayProgramBox(
     filePath=None,
     fileFlags=0,
@@ -829,13 +829,13 @@ def DisplayProgramBox(
     clearScreen=False,
     extraLabel=None,
 ):
-    global Dialog
-    global MainDialog
+    global _Dialog
+    global _MainDialog
 
     reply = False
 
-    if MainDialog is not None:
-        code = MainDialog.programbox(
+    if _MainDialog is not None:
+        code = _MainDialog.programbox(
             file_path=filePath,
             file_flags=fileFlags,
             fd=fileDescriptor,
@@ -845,10 +845,10 @@ def DisplayProgramBox(
             extra_button=(extraLabel is not None),
             extra_label=str(extraLabel),
         )
-        if (code == Dialog.CANCEL) or (code == Dialog.ESC):
-            raise DialogCanceledException()
-        elif code == Dialog.EXTRA:
-            raise DialogBackException()
+        if (code == _Dialog.CANCEL) or (code == _Dialog.ESC):
+            raise _DialogCanceledException()
+        elif code == _Dialog.EXTRA:
+            raise _DialogBackException()
         else:
             reply = True
 
@@ -897,13 +897,13 @@ def SameFileOrDir(path1, path2):
 ###################################################################################################
 # determine if a program/script exists and is executable in the system path
 def Which(cmd, debug=False):
-    global HasWhich
-    if HasWhich:
+    global _HasWhich
+    if _HasWhich:
         result = which(cmd) is not None
     else:
         result = any(os.access(os.path.join(path, cmd), os.X_OK) for path in os.environ["PATH"].split(os.pathsep))
     if debug:
-        eprint(f"Which({HasWhich}) {cmd} returned {result}")
+        eprint(f"Which({_HasWhich}) {cmd} returned {result}")
     return result
 
 
@@ -1115,20 +1115,20 @@ def RunSubProcess(command, stdout=True, stderr=False, stdin=None, timeout=60):
 
 ###################################################################################################
 # attempt dynamic imports, prompting for install via pip if possible
-DynImports = defaultdict(lambda: None)
+_DynImports = defaultdict(lambda: None)
 
 
 def DoDynamicImport(importName, pipPkgName, interactive=False, debug=False):
-    global DynImports
+    global _DynImports
 
     # see if we've already imported it
-    if not DynImports[importName]:
+    if not _DynImports[importName]:
         # if not, attempt the import
         try:
             tmpImport = importlib.import_module(importName)
             if tmpImport:
-                DynImports[importName] = tmpImport
-                return DynImports[importName]
+                _DynImports[importName] = tmpImport
+                return _DynImports[importName]
         except Exception:
             pass
 
@@ -1164,18 +1164,18 @@ def DoDynamicImport(importName, pipPkgName, interactive=False, debug=False):
                     try:
                         tmpImport = importlib.import_module(importName)
                         if tmpImport:
-                            DynImports[importName] = tmpImport
+                            _DynImports[importName] = tmpImport
                     except Exception:
                         eprint(f"Importing the {importName} module still failed: {e}")
                 else:
                     eprint(f"Installation of {importName} module failed: {out}")
 
-    if not DynImports[importName]:
+    if not _DynImports[importName]:
         eprint(
             "System-wide installation varies by platform and Python configuration. Please consult platform-specific documentation for installing Python modules."
         )
 
-    return DynImports[importName]
+    return _DynImports[importName]
 
 
 ###################################################################################################
@@ -1260,5 +1260,6 @@ def RemoveEmptyFolders(path, removeRoot=True):
 
 
 ###################################################################################################
-if __name__ == "__main__":
-    eprint("H̵e̷l̷l̵o̸,̸ ̵w̶o̵r̸l̴d̷!̸")
+def main():
+    print(f"mmguero v{importlib.metadata.version('mmguero')}")
+    sys.exit(0)
