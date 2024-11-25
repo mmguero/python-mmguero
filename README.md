@@ -34,6 +34,7 @@
 * `GetIterable` - return an iterable for an iterable (as-is) or a scalar (as a single element in a tuple)
 * `GetPrimaryIP` - return the primary IP (the one with a default route) on the local box
 * `GitClone` - create a local git clone
+* `JsonObjSerializer` - JSON serializer with better support for objects
 * `LoadFileIfJson` - does this file contain valid json? if so, load and return it
 * `LoadStrIfJson` - is this string valid json? if so, load and return it
 * `PopLine` - "pop" lines from the beginning of a text file

@@ -25,8 +25,11 @@ from collections import defaultdict, namedtuple, OrderedDict
 from datetime import datetime
 from enum import IntEnum, IntFlag, auto
 from multiprocessing import RawValue
+from pytz import utc as UTCTimeZone
 from subprocess import PIPE, Popen, CalledProcessError, run as SubProcessRun
 from threading import Lock
+from types import GeneratorType, FunctionType, LambdaType
+
 
 try:
     from pwd import getpwuid
@@ -992,6 +995,42 @@ def LoadFileIfJson(fileHandle, attemptLines=False):
         result = None
 
     return result
+
+
+###################################################################################################
+# JSON serializer with better support for objects
+def JsonObjSerializer(obj):
+    if isinstance(obj, datetime):
+        return obj.astimezone(UTCTimeZone).isoformat()
+
+    elif isinstance(obj, GeneratorType):
+        return [JsonObjSerializer(item) for item in obj]
+
+    elif isinstance(obj, list):
+        return [JsonObjSerializer(item) for item in obj]
+
+    elif isinstance(obj, dict):
+        return {key: JsonObjSerializer(value) for key, value in obj.items()}
+
+    elif isinstance(obj, set):
+        return {JsonObjSerializer(item) for item in obj}
+
+    elif isinstance(obj, tuple):
+        return tuple(JsonObjSerializer(item) for item in obj)
+
+    elif isinstance(obj, FunctionType):
+        return f"function {obj.__name__}" if obj.__name__ != "<lambda>" else "lambda"
+
+    elif isinstance(obj, LambdaType):
+        return "lambda"
+
+    elif (not hasattr(obj, "__str__") or obj.__str__ is object.__str__) and (
+        not hasattr(obj, "__repr__") or obj.__repr__ is object.__repr__
+    ):
+        return obj.__class__.__name__
+
+    else:
+        return str(obj)
 
 
 ###################################################################################################
