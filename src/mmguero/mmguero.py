@@ -22,10 +22,9 @@ try:
 except ImportError:
     from collections import Iterable
 from collections import defaultdict, namedtuple, OrderedDict
-from datetime import datetime
+from datetime import datetime, UTC as UTCTimeZone
 from enum import IntEnum, IntFlag, auto
 from multiprocessing import RawValue
-from pytz import utc as UTCTimeZone
 from subprocess import PIPE, Popen, CalledProcessError, run as SubProcessRun
 from threading import Lock
 from types import GeneratorType, FunctionType, LambdaType
