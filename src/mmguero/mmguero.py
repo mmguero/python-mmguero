@@ -377,6 +377,75 @@ def EVP_BytesToKey(key_length: int, iv_length: int, md, salt: bytes, data: bytes
 
 
 ###################################################################################################
+def EscapeForCurl(s):
+    return s.translate(
+        str.maketrans(
+            {
+                '"': r'\"',
+                "\\": r"\\",
+                "\t": r"\t",
+                "\n": r"\n",
+                "\r": r"\r",
+                "\v": r"\v",
+            }
+        )
+    )
+
+
+def UnescapeForCurl(s):
+    return CustomMakeTranslation(
+        s,
+        {
+            r'\"': '"',
+            r"\t": "\t",
+            r"\n": "\n",
+            r"\r": "\r",
+            r"\v": "\v",
+            r"\\": "\\",
+        },
+    )
+
+
+###################################################################################################
+# parse a curl-formatted config file, with special handling for user:password and URL
+# see https://everything.curl.dev/cmdline/configfile
+# e.g.:
+#
+# given .opensearch.primary.curlrc containing:
+# -
+# user: "sikari:changethis"
+# insecure
+# -
+#
+# ParseCurlFile('.opensearch.primary.curlrc') returns:
+#   {
+#    'user': 'sikari',
+#    'password': 'changethis',
+#    'insecure': ''
+#   }
+def ParseCurlFile(curlCfgFileName):
+    result = defaultdict(lambda: '')
+    if os.path.isfile(curlCfgFileName):
+        itemRegEx = re.compile(r'^([^\s:=]+)((\s*[:=]?\s*)(.*))?$')
+        with open(curlCfgFileName, 'r') as f:
+            allLines = [x.strip().lstrip('-') for x in f.readlines() if not x.startswith('#')]
+        for line in allLines:
+            found = itemRegEx.match(line)
+            if found is not None:
+                key = found.group(1)
+                value = UnescapeForCurl(found.group(4).lstrip('"').rstrip('"'))
+                if (key == 'user') and (':' in value):
+                    splitVal = value.split(':', 1)
+                    result[key] = splitVal[0]
+                    if len(splitVal) > 1:
+                        result['password'] = splitVal[1]
+                else:
+                    result[key] = value
+
+    return result
+
+
+###################################################################################################
 # safe deep get for a dictionary
 #
 # Example:
