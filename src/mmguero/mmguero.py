@@ -16,19 +16,25 @@ import tempfile
 import time
 
 from base64 import b64decode
-
-try:
-    from collections.abc import Iterable
-except ImportError:
-    from collections import Iterable
+from datetime import datetime
 from collections import defaultdict, namedtuple, OrderedDict
-from datetime import datetime, UTC as UTCTimeZone
 from enum import IntEnum, IntFlag, auto
 from multiprocessing import RawValue
 from subprocess import PIPE, Popen, CalledProcessError, run as SubProcessRun
 from threading import Lock
 from types import GeneratorType, FunctionType, LambdaType
 
+try:
+    from collections.abc import Iterable
+except ImportError:
+    from collections import Iterable
+
+try:
+    from datetime import UTC as UTCTimeZone
+except ImportError:
+    from datetime import timezone
+
+    UTCTimeZone = timezone.utc
 
 try:
     from pwd import getpwuid
