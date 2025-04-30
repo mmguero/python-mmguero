@@ -6,6 +6,7 @@ import getpass
 import hashlib
 import importlib
 import json
+import mmap
 import os
 import platform
 import re
@@ -226,6 +227,20 @@ def FileContents(filename, encoding='utf-8', binary_fallback=False):
 
     else:
         return None
+
+
+###################################################################################################
+# use memory-mapped files and count "\n" (fastest for many small files as it avoids subprocess overhead)
+def CountLinesMmap(file_path):
+    try:
+        if os.path.getsize(file_path):
+            with open(file_path, "r") as f:
+                return file_path, mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ).read().count(b"\n")
+        else:
+            return file_path, 0
+    except Exception as e:
+        print(f"Error counting lines of {file_path}: {e}", file=sys.stderr)
+        return file_path, 0
 
 
 ###################################################################################################
@@ -476,6 +491,26 @@ def DeepSet(d, keys, value, deleteIfNone=False):
 
 
 ###################################################################################################
+# Recursively merges 'source' dict into 'destination' dict. Values from 'source' override those
+#    in 'destination' at the same path.
+def DeepMerge(source, destination):
+    for key, value in source.items():
+        if isinstance(value, dict) and isinstance(destination.get(key), dict):
+            destination[key] = DeepMerge(value, destination[key])
+        else:
+            destination[key] = value
+    return destination
+
+
+def DeepMergeInPlace(source, destination):
+    for key, value in source.items():
+        if isinstance(value, dict) and isinstance(destination.get(key), dict):
+            DeepMerge(value, destination[key])
+        else:
+            destination[key] = value
+
+
+###################################################################################################
 # recursive dictionary key search
 def DictSearch(d, target):
     val = filter(
@@ -506,6 +541,17 @@ def GetIterable(x):
 
 
 ###################################################################################################
+# remove "empty" items from a collection
+def RemoveFalsy(obj):
+    if isinstance(obj, dict):
+        return {k: v for k, v in ((k, RemoveFalsy(v)) for k, v in obj.items()) if v}
+    elif isinstance(obj, list):
+        return [v for v in (RemoveFalsy(i) for i in obj) if v]
+    else:
+        return obj if obj else None
+
+
+###################################################################################################
 # attempt to clear the screen
 def ClearScreen():
     try:
@@ -526,8 +572,6 @@ def YesOrNo(
     noLabel='No',
     extraLabel=None,
 ):
-    global _Dialog
-    global _MainDialog
     result = None
 
     if (default is not None) and (
@@ -618,9 +662,6 @@ def AskForString(
     clearScreen=False,
     extraLabel=None,
 ):
-    global _Dialog
-    global _MainDialog
-
     if (default is not None) and (
         (defaultBehavior & UserInputDefaultsBehavior.DefaultsAccept)
         and (defaultBehavior & UserInputDefaultsBehavior.DefaultsNonInteractive)
@@ -673,9 +714,6 @@ def AskForPassword(
     clearScreen=False,
     extraLabel=None,
 ):
-    global _Dialog
-    global _MainDialog
-
     if (default is not None) and (
         (defaultBehavior & UserInputDefaultsBehavior.DefaultsAccept)
         and (defaultBehavior & UserInputDefaultsBehavior.DefaultsNonInteractive)
@@ -720,9 +758,6 @@ def ChooseOne(
     clearScreen=False,
     extraLabel=None,
 ):
-    global _Dialog
-    global _MainDialog
-
     validChoices = [x for x in choices if len(x) == 3 and isinstance(x[0], str) and isinstance(x[2], bool)]
     defaulted = next(iter([x for x in validChoices if x[2] is True]), None)
 
@@ -789,9 +824,6 @@ def ChooseMultiple(
     clearScreen=False,
     extraLabel=None,
 ):
-    global _Dialog
-    global _MainDialog
-
     validChoices = [x for x in choices if len(x) == 3 and isinstance(x[0], str) and isinstance(x[2], bool)]
     defaulted = [x[0] for x in validChoices if x[2] is True]
 
@@ -863,9 +895,6 @@ def DisplayMessage(
     clearScreen=False,
     extraLabel=None,
 ):
-    global _Dialog
-    global _MainDialog
-
     reply = False
 
     if (defaultBehavior & UserInputDefaultsBehavior.DefaultsAccept) and (
@@ -906,9 +935,6 @@ def DisplayProgramBox(
     clearScreen=False,
     extraLabel=None,
 ):
-    global _Dialog
-    global _MainDialog
-
     reply = False
 
     if _MainDialog is not None:
@@ -974,7 +1000,6 @@ def SameFileOrDir(path1, path2):
 ###################################################################################################
 # determine if a program/script exists and is executable in the system path
 def Which(cmd, debug=False):
-    global _HasWhich
     if _HasWhich:
         result = which(cmd) is not None
     else:
@@ -987,13 +1012,26 @@ def Which(cmd, debug=False):
 ###################################################################################################
 # calculate a sha256 hash of a file
 def sha256sum(filename):
-    h = hashlib.sha256()
-    b = bytearray(64 * 1024)
-    mv = memoryview(b)
-    with open(filename, 'rb', buffering=0) as f:
-        for n in iter(lambda: f.readinto(mv), 0):
-            h.update(mv[:n])
-    return h.hexdigest()
+    try:
+        h = hashlib.sha256()
+        b = bytearray(64 * 1024)
+        mv = memoryview(b)
+        with open(filename, 'rb', buffering=0) as f:
+            for n in iter(lambda: f.readinto(mv), 0):
+                h.update(mv[:n])
+        return h.hexdigest()
+    except Exception:
+        return None
+
+
+###################################################################################################
+# calculate SHAKE256 hash of a file
+def shakeysum(filename, digest_len=8):
+    try:
+        with open(filename, 'rb', buffering=0) as f:
+            return hashlib.file_digest(f, 'shake_256').hexdigest(digest_len)
+    except Exception:
+        return None
 
 
 ###################################################################################################
@@ -1232,8 +1270,6 @@ _DynImports = defaultdict(lambda: None)
 
 
 def DoDynamicImport(importName, pipPkgName, interactive=False, debug=False):
-    global _DynImports
-
     # see if we've already imported it
     if not _DynImports[importName]:
         # if not, attempt the import
@@ -1278,7 +1314,7 @@ def DoDynamicImport(importName, pipPkgName, interactive=False, debug=False):
                         tmpImport = importlib.import_module(importName)
                         if tmpImport:
                             _DynImports[importName] = tmpImport
-                    except Exception:
+                    except Exception as e:
                         eprint(f"Importing the {importName} module still failed: {e}")
                 else:
                     eprint(f"Installation of {importName} module failed: {out}")

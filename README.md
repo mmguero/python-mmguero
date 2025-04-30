@@ -18,8 +18,10 @@
 * `ClearScreen` - attempt to clear the screen with `clear` (\*NIX) or `cls` (Windows)
 * `ContainsWhitespace` - check if any character in a string is whitespace
 * `ContextLockedOrderedDict` - an OrderedDict that locks itself and unlocks itself as a context manager
+* `CountLinesMmap` - use memory-mapped files and count "\n"
 * `CustomMakeTranslation` - Replace substrings based on a dictionary of mappings
 * `DeepGet` - safe deep get for a dictionary
+* `DeepMerge` and `DeepMergeInPlace` - Recursively merges source dict into destination dict
 * `DeepSet` - convenience routine for setting-getting a value into a dictionary
 * `DictSearch` - recursive dictionary key search
 * `DisplayMessage` - display a message to the user
@@ -40,12 +42,14 @@
 * `PopLine` - "pop" lines from the beginning of a text file
 * `pushd` - chdir to directory as context manager, returning automatically
 * `RemoveEmptyFolders` - recursively remove empty subfolders
+* `RemoveFalsy` - remove "empty" items from a collection
 * `RemovePrefix` - remove a prefix from a string
 * `RemoveSuffix` - remove a suffix from a string
 * `RunProcess` - run command with arguments and return its exit code, stdout, and stderr
 * `RunSubProcess` - execute a shell process returning its exit code and output
 * `SameFileOrDir` - return true if os.path.samefile, also False on exception
 * `sha256sum` - calculate a sha256 hash of a file
+* `shakeysum` - calculate shakey hash of a file
 * `SizeHumanFormat` - nice human-readable file sizes
 * `str2bool` and `str2boolorextra` - convenient boolean argument parsing
 * `Tablify` - print a list of lists into a nice table
