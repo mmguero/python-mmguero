@@ -4,12 +4,16 @@
 import contextlib
 import getpass
 import hashlib
+import fnmatch
 import importlib
+import importlib.util
+import inspect
 import json
 import mmap
 import os
 import platform
 import re
+import site
 import socket
 import string
 import sys
@@ -56,11 +60,14 @@ _MainDialog = None
 PLATFORM_WINDOWS = "Windows"
 PLATFORM_MAC = "Darwin"
 PLATFORM_LINUX = "Linux"
+PLATFORM_LINUX_ALMA = "almalinux"
+PLATFORM_LINUX_AMAZON = "amazon"
 PLATFORM_LINUX_CENTOS = "centos"
 PLATFORM_LINUX_DEBIAN = "debian"
 PLATFORM_LINUX_FEDORA = "fedora"
-PLATFORM_LINUX_UBUNTU = "ubuntu"
 PLATFORM_LINUX_RASPBIAN = "raspbian"
+PLATFORM_LINUX_ROCKY = "rocky"
+PLATFORM_LINUX_UBUNTU = "ubuntu"
 
 
 ###################################################################################################
@@ -280,10 +287,12 @@ def str2bool(v):
     elif isinstance(v, str):
         if v.lower() in ("yes", "true", "t", "y", "1"):
             return True
-        elif v.lower() in ("no", "false", "f", "n", "0"):
+        elif v.lower() in ("no", "false", "f", "n", "0", ""):
             return False
         else:
             raise ValueError("Boolean value expected")
+    elif not v:
+        return False
     else:
         raise ValueError("Boolean value expected")
 
@@ -1265,6 +1274,22 @@ def RunSubProcess(command, stdout=True, stderr=False, stdin=None, timeout=60):
 
 
 ###################################################################################################
+# return the name of the calling function as a string
+def GetFunctionName(depth=0):
+    try:
+        frame = inspect.currentframe()
+        for _ in range(depth + 1):
+            if frame is None:
+                return None
+            frame = frame.f_back
+        return frame.f_code.co_name if frame else None
+    except Exception:
+        return None
+    finally:
+        del frame
+
+
+###################################################################################################
 # attempt dynamic imports, prompting for install via pip if possible
 _DynImports = defaultdict(lambda: None)
 
@@ -1286,12 +1311,14 @@ def DoDynamicImport(importName, pipPkgName, interactive=False, debug=False):
         pyPlatform = platform.system()
         pyExec = sys.executable
         pipCmd = "pip3"
-        if not Which(pipCmd, debug=debug):
-            pipCmd = "pip"
+        if not (pipFound := Which(pipCmd, debug=debug)):
+            err, out = RunProcess([sys.executable, '-m', 'pip', '--version'], debug=debug)
+            if out and (pipFound := (err == 0)):
+                pipCmd = [sys.executable, '-m', 'pip']
 
         eprint(f"The {pipPkgName} module is required under Python {platform.python_version()} ({pyExec})")
 
-        if interactive and Which(pipCmd, debug=debug):
+        if interactive and pipFound:
             if YesOrNo(f"Importing the {pipPkgName} module failed. Attempt to install via {pipCmd}?"):
                 installCmd = None
 
@@ -1310,6 +1337,8 @@ def DoDynamicImport(importName, pipPkgName, interactive=False, debug=False):
                 err, out = RunProcess(installCmd, debug=debug)
                 if err == 0:
                     eprint(f"Installation of {pipPkgName} module apparently succeeded")
+                    importlib.reload(site)
+                    importlib.invalidate_caches()
                     try:
                         tmpImport = importlib.import_module(importName)
                         if tmpImport:
@@ -1385,6 +1414,41 @@ def ChownRecursive(path, uid, gid):
                 os.chown(os.path.join(dirpath, dname), int(uid), int(gid))
             for fname in filenames:
                 os.chown(os.path.join(dirpath, fname), int(uid), int(gid), follow_symlinks=False)
+
+
+###################################################################################################
+# recursively delete a directory tree while excluding specific files based on glob-style patterns
+def RmtreeExcept(path, exclude_patterns=None, ignore_errors=False):
+    if exclude_patterns is None:
+        exclude_patterns = []
+
+    for root, dirs, files in os.walk(path, topdown=False):
+        for name in files:
+            full_path = os.path.join(root, name)
+            if not any(fnmatch.fnmatch(name, pattern) for pattern in exclude_patterns):
+                try:
+                    os.remove(full_path)
+                except Exception as e:
+                    if not ignore_errors:
+                        raise
+
+        for name in dirs:
+            full_path = os.path.join(root, name)
+            try:
+                os.rmdir(full_path)
+            except OSError:
+                pass
+            except Exception:
+                if not ignore_errors:
+                    raise
+
+    try:
+        os.rmdir(path)
+    except OSError:
+        pass
+    except Exception:
+        if not ignore_errors:
+            raise
 
 
 ###################################################################################################

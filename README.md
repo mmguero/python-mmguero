@@ -33,6 +33,7 @@
 * `EVP_BytesToKey` - create key compatible with openssl enc
 * `FileContents` - read the contents of a file, optionally falling back to binary
 * `Flatten` - flatten a collection, but don't split strings
+* `GetFunctionName` - return the name of a calling function as a string
 * `GetIterable` - return an iterable for an iterable (as-is) or a scalar (as a single element in a tuple)
 * `GetPrimaryIP` - return the primary IP (the one with a default route) on the local box
 * `GitClone` - create a local git clone
@@ -45,6 +46,7 @@
 * `RemoveFalsy` - remove "empty" items from a collection
 * `RemovePrefix` - remove a prefix from a string
 * `RemoveSuffix` - remove a suffix from a string
+* `RmtreeExcept` - recursively delete a directory tree while excluding specific files based on glob-style patterns
 * `RunProcess` - run command with arguments and return its exit code, stdout, and stderr
 * `RunSubProcess` - execute a shell process returning its exit code and output
 * `SameFileOrDir` - return true if os.path.samefile, also False on exception
