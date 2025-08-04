@@ -1474,7 +1474,14 @@ def RemoveEmptyFolders(path, removeRoot=True):
 
 
 ###################################################################################################
-def set_logging(log_level_str, flag_level_count, logger=None, set_traceback_limit=False):
+def set_logging(
+    log_level_str,
+    flag_level_count,
+    logger=None,
+    set_traceback_limit=False,
+    logfmt='%(asctime)s %(levelname)s: %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S',
+):
     """
     Configures logging based on a log level string or verbosity count.
 
@@ -1546,16 +1553,16 @@ def set_logging(log_level_str, flag_level_count, logger=None, set_traceback_limi
         # Set global logging config (root logger)
         logging.basicConfig(
             level=log_level,
-            format='%(asctime)s %(levelname)s: %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S',
+            format=logfmt,
+            datefmt=datefmt,
         )
     else:
         # Configure a specific logger
         handler = logging.StreamHandler()
         handler.setFormatter(
             logging.Formatter(
-                '%(asctime)s %(levelname)s: %(message)s',
-                datefmt='%Y-%m-%d %H:%M:%S',
+                logfmt,
+                datefmt=datefmt,
             )
         )
         logger.setLevel(log_level)
