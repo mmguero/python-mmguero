@@ -9,6 +9,7 @@ import importlib
 import importlib.util
 import inspect
 import json
+import logging
 import mmap
 import os
 import platform
@@ -1470,6 +1471,102 @@ def RemoveEmptyFolders(path, removeRoot=True):
             os.rmdir(path)
         except Exception:
             pass
+
+
+###################################################################################################
+def set_logging(log_level_str, flag_level_count, logger=None, set_traceback_limit=False):
+    """
+    Configures logging based on a log level string or verbosity count.
+
+    Usage example (with argparse and environment variables):
+    =====================================================
+    parser = argparse.ArgumentParser(
+        description='\n'.join([]),
+        formatter_class=argparse.RawTextHelpFormatter,
+        add_help=False,
+        usage=f'{script_name} <arguments>',
+    )
+    verbose_env_val = os.getenv("VERBOSITY", "")
+    verbose_env_val = f"-{'v' * int(verbose_env_val)}" if verbose_env_val.isdigit() else verbose_env_val
+    parser.add_argument(
+        '--verbose',
+        '-v',
+        action='count',
+        default=(
+            verbose_env_val.count("v") if verbose_env_val.startswith("-") and set(verbose_env_val[1:]) <= {"v"} else 0
+        ),
+        help='Increase log level verbosity (e.g., -v, -vv, etc.)',
+    )
+    parser.add_argument(
+        '--loglevel',
+        '-l',
+        metavar='<critical|error|warning|info|debug>',
+        type=str,
+        default=os.getenv("LOGLEVEL", ""),
+        help='Set log level directly (e.g., --loglevel=debug)',
+    )
+    try:
+        args = parser.parse_args()
+    except SystemExit:
+        parser.print_help()
+        exit(2)
+
+    log_level = set_logging(args.loglevel, args.verbose, set_traceback_limit=True)
+    =====================================================
+
+    Args:
+        log_level_str (str): A string like 'debug', 'info', etc. May be None.
+        flag_level_count (int): Number of -v flags passed (0–5).
+        logger (logging.Logger, optional): If provided, configures this logger
+                                           instead of the global root logger.
+
+    Returns:
+        int: The final effective logging level (e.g., logging.DEBUG).
+    """
+
+    # level-based logging verbosity
+    cli_level = None
+    if log_level_str:
+        cli_level = {
+            'CRITICAL': logging.CRITICAL,
+            'ERROR': logging.ERROR,
+            'WARNING': logging.WARNING,
+            'INFO': logging.INFO,
+            'DEBUG': logging.DEBUG,
+        }.get(log_level_str.strip().upper(), logging.CRITICAL)
+
+    # flag-based logging verbosity
+    flag_level = max(logging.NOTSET, min(logging.CRITICAL - (10 * flag_level_count), logging.CRITICAL))
+
+    # final log level: pick more verbose (lower number)
+    log_level = min(flag_level, cli_level) if cli_level is not None else flag_level
+
+    # Configure logging
+    if logger is None:
+        # Set global logging config (root logger)
+        logging.basicConfig(
+            level=log_level,
+            format='%(asctime)s %(levelname)s: %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S',
+        )
+    else:
+        # Configure a specific logger
+        handler = logging.StreamHandler()
+        handler.setFormatter(
+            logging.Formatter(
+                '%(asctime)s %(levelname)s: %(message)s',
+                datefmt='%Y-%m-%d %H:%M:%S',
+            )
+        )
+        logger.setLevel(log_level)
+        logger.handlers.clear()
+        logger.addHandler(handler)
+        logger.propagate = False  # Don't double-log to the root logger
+
+    if set_traceback_limit and (log_level > logging.DEBUG):
+        sys.tracebacklimit = 0
+
+    return log_level
 
 
 ###################################################################################################

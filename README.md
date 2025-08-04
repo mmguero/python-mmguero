@@ -50,6 +50,7 @@
 * `RunProcess` - run command with arguments and return its exit code, stdout, and stderr
 * `RunSubProcess` - execute a shell process returning its exit code and output
 * `SameFileOrDir` - return true if os.path.samefile, also False on exception
+* `set_logging` - configures logging based on a log level string or verbosity count
 * `sha256sum` - calculate a sha256 hash of a file
 * `shakeysum` - calculate shakey hash of a file
 * `SizeHumanFormat` - nice human-readable file sizes
