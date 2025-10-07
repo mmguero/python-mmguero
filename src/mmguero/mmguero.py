@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+# python3 -m black --line-length 120 --skip-string-normalization
+# python3 -m flake8 --ignore=E203,E501,E402,F401,F403,W503
+
 import contextlib
 import getpass
 import hashlib
@@ -37,11 +40,11 @@ except ImportError:
     from collections import Iterable
 
 try:
-    from datetime import UTC as UTCTimeZone
+    from datetime import UTC as utc_time_zone
 except ImportError:
     from datetime import timezone
 
-    UTCTimeZone = timezone.utc
+    utc_time_zone = timezone.utc
 
 try:
     from pwd import getpwuid
@@ -49,14 +52,14 @@ except Exception:
     getpwuid = None
 
 try:
-    from shutil import which
+    from shutil import which as _shutil_which
 
-    _HasWhich = True
+    _has_which = True
 except Exception:
-    _HasWhich = False
+    _has_which = False
 
-_Dialog = None
-_MainDialog = None
+_dialog = None
+_main_dialog = None
 
 ###################################################################################################
 PLATFORM_WINDOWS = "Windows"
@@ -73,32 +76,32 @@ PLATFORM_LINUX_UBUNTU = "ubuntu"
 
 
 ###################################################################################################
-def _DialogInit():
-    global _Dialog
-    global _MainDialog
+def _dialog_init():
+    global _dialog
+    global _main_dialog
     try:
-        if not _Dialog:
-            from dialog import dialog as _Dialog
+        if not _dialog:
+            from dialog import dialog as _dialog
 
-        if not _MainDialog:
-            _MainDialog = _Dialog(dialog='dialog', autowidgetsize=True)
+        if not _main_dialog:
+            _main_dialog = _dialog(dialog='dialog', autowidgetsize=True)
     except ImportError:
-        _Dialog = None
-        _MainDialog = None
+        _dialog = None
+        _main_dialog = None
 
 
-_DialogInit()
+_dialog_init()
 
 
 class UserInputDefaultsBehavior(IntFlag):
-    DefaultsPrompt = auto()
-    DefaultsAccept = auto()
-    DefaultsNonInteractive = auto()
+    DEFAULTS_PROMPT = auto()
+    DEFAULTS_ACCEPT = auto()
+    DEFAULTS_NON_INTERACTIVE = auto()
 
 
 class UserInterfaceMode(IntFlag):
-    InteractionDialog = auto()
-    InteractionInput = auto()
+    INTERACTION_DIALOG = auto()
+    INTERACTION_INPUT = auto()
 
 
 class _DialogBackException(Exception):
@@ -119,22 +122,22 @@ class BoolOrExtra(IntEnum):
 # atomic integer class and context manager
 class AtomicInt:
     def __init__(self, value=0):
-        self.val = RawValue('i', value)
-        self.lock = Lock()
+        self._val = RawValue('i', value)
+        self._lock = Lock()
 
     def increment(self):
-        with self.lock:
-            self.val.value += 1
-            return self.val.value
+        with self._lock:
+            self._val.value += 1
+            return self._val.value
 
     def decrement(self):
-        with self.lock:
-            self.val.value -= 1
-            return self.val.value
+        with self._lock:
+            self._val.value -= 1
+            return self._val.value
 
     def value(self):
-        with self.lock:
-            return self.val.value
+        with self._lock:
+            return self._val.value
 
     def __enter__(self):
         return self.increment()
@@ -148,14 +151,14 @@ class AtomicInt:
 class ContextLockedOrderedDict(OrderedDict):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.lock = Lock()
+        self._lock = Lock()
 
     def __enter__(self):
-        self.lock.acquire()
+        self._lock.acquire()
         return self
 
     def __exit__(self, type, value, traceback):
-        self.lock.release()
+        self._lock.release()
         return self
 
 
@@ -163,18 +166,18 @@ class ContextLockedOrderedDict(OrderedDict):
 # a context manager for entering a directory and leaving it upon leaving the context
 @contextlib.contextmanager
 def pushd(directory):
-    prevDir = os.getcwd()
+    prev_dir = os.getcwd()
     os.chdir(directory)
     try:
         yield
     finally:
-        os.chdir(prevDir)
+        os.chdir(prev_dir)
 
 
 ###################################################################################################
 # a context manager returning a temporary filename which is deleted upon leaving the context
 @contextlib.contextmanager
-def TemporaryFilename(suffix=None):
+def temporary_filename(suffix=None):
     try:
         f = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
         tmp_name = f.name
@@ -186,14 +189,14 @@ def TemporaryFilename(suffix=None):
 
 ###################################################################################################
 # open a file and close it, updating its access time
-def Touch(filename):
+def touch(filename):
     open(filename, 'a').close()
     os.utime(filename, None)
 
 
 ###################################################################################################
 # append strings to a text file
-def AppendToFile(filename, value):
+def append_to_file(filename, value):
     with open(filename, "a") as f:
         if isinstance(value, Iterable) and not isinstance(value, str):
             f.write('\n'.join(value))
@@ -203,9 +206,9 @@ def AppendToFile(filename, value):
 
 ###################################################################################################
 # "pop" lines from the beginning of a file
-def PopLine(fileName, count=1):
+def pop_line(file_name, count=1):
     result = []
-    with open(fileName, 'r+') as f:
+    with open(file_name, 'r+') as f:
         for i in range(0, count):
             result.append(f.readline())
         data = f.read()
@@ -217,20 +220,20 @@ def PopLine(fileName, count=1):
 
 ###################################################################################################
 # read the contents of a file, first assuming text (with encoding), optionally falling back to binary
-def FileContents(filename, encoding='utf-8', binary_fallback=False):
+def file_contents(filename, encoding='utf-8', binary_fallback=False):
     if os.path.isfile(filename):
-        decodeErr = False
+        decode_err = False
 
         try:
             with open(filename, 'r', encoding=encoding) as f:
                 return f.read()
         except (UnicodeDecodeError, AttributeError):
             if binary_fallback:
-                decodeErr = True
+                decode_err = True
             else:
                 raise
 
-        if decodeErr and binary_fallback:
+        if decode_err and binary_fallback:
             with open(filename, 'rb') as f:
                 return f.read()
 
@@ -240,7 +243,7 @@ def FileContents(filename, encoding='utf-8', binary_fallback=False):
 
 ###################################################################################################
 # use memory-mapped files and count "\n" (fastest for many small files as it avoids subprocess overhead)
-def CountLinesMmap(file_path):
+def count_lines_mmap(file_path):
     try:
         if os.path.getsize(file_path):
             with open(file_path, "r") as f:
@@ -255,7 +258,7 @@ def CountLinesMmap(file_path):
 ###################################################################################################
 # print to stderr
 def eprint(*args, **kwargs):
-    filteredArgs = (
+    filtered_args = (
         {k: v for (k, v) in kwargs.items() if k not in ('timestamp', 'flush')} if isinstance(kwargs, dict) else {}
     )
     if "timestamp" in kwargs and kwargs["timestamp"]:
@@ -263,21 +266,21 @@ def eprint(*args, **kwargs):
             datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             *args,
             file=sys.stderr,
-            **filteredArgs,
+            **filtered_args,
         )
     else:
-        print(*args, file=sys.stderr, **filteredArgs)
+        print(*args, file=sys.stderr, **filtered_args)
     if "flush" in kwargs and kwargs["flush"]:
         sys.stderr.flush()
 
 
 ###################################################################################################
 # print a list of lists into a nice table
-def Tablify(matrix, file=sys.stdout):
-    colMaxLen = {i: max(map(len, inner)) for i, inner in enumerate(zip(*matrix))}
+def tablify(matrix, file=sys.stdout):
+    col_max_len = {i: max(map(len, inner)) for i, inner in enumerate(zip(*matrix))}
     for row in matrix:
         for col, data in enumerate(row):
-            print(f"{data:{colMaxLen[col]}}", end=" | ", file=file)
+            print(f"{data:{col_max_len[col]}}", end=" | ", file=file)
         print(file=file)
 
 
@@ -299,7 +302,7 @@ def str2bool(v):
         raise ValueError("Boolean value expected")
 
 
-def str2boolorextra(v):
+def str2bool_or_extra(v):
     if isinstance(v, bool):
         return BoolOrExtra.TRUE if v else BoolOrExtra.FALSE
     elif isinstance(v, str):
@@ -339,27 +342,27 @@ def val2bool(v):
 
 ###################################################################################################
 # urlencode each character of a string
-def AggressiveUrlEncode(val):
+def aggressive_url_encode(val):
     return "".join("%{0:0>2}".format(format(ord(char), "x")) for char in val)
 
 
 ###################################################################################################
 # any character in the string is in string.whitespace
-def ContainsWhitespace(s):
+def contains_whitespace(s):
     return True in [c in s for c in string.whitespace]
 
 
 ###################################################################################################
-def CustomMakeTranslation(text, translation):
+def custom_make_translation(text, translation):
     regex = re.compile('|'.join(map(re.escape, translation)))
     return regex.sub(lambda match: translation[match.group(0)], text)
 
 
 ###################################################################################################
 # remove ANSI escape sequences
-def EscapeAnsi(line):
-    ansiEscape = re.compile(r'(?:\x1B[@-_]|[\x80-\x9F])[0-?]*[ -/]*[@-~]')
-    return ansiEscape.sub('', line)
+def escape_ansi(line):
+    ansi_escape = re.compile(r'(?:\x1B[@-_]|[\x80-\x9F])[0-?]*[ -/]*[@-~]')
+    return ansi_escape.sub('', line)
 
 
 ###################################################################################################
@@ -371,7 +374,7 @@ _OPENSSL_ENC_MAGIC = b'Salted__'
 _PKCS5_SALT_LEN = 8
 
 
-def EVP_BytesToKey(key_length: int, iv_length: int, md, salt: bytes, data: bytes, count: int = 1) -> (bytes, bytes):
+def evp_bytes_to_key(key_length: int, iv_length: int, md, salt: bytes, data: bytes, count: int = 1) -> (bytes, bytes):
     assert data
     assert salt == b'' or len(salt) == _PKCS5_SALT_LEN
 
@@ -403,7 +406,7 @@ def EVP_BytesToKey(key_length: int, iv_length: int, md, salt: bytes, data: bytes
 
 
 ###################################################################################################
-def EscapeForCurl(s):
+def escape_for_curl(s):
     return s.translate(
         str.maketrans(
             {
@@ -418,8 +421,8 @@ def EscapeForCurl(s):
     )
 
 
-def UnescapeForCurl(s):
-    return CustomMakeTranslation(
+def unescape_for_curl(s):
+    return custom_make_translation(
         s,
         {
             r'\"': '"',
@@ -443,28 +446,28 @@ def UnescapeForCurl(s):
 # insecure
 # -
 #
-# ParseCurlFile('.opensearch.primary.curlrc') returns:
+# parse_curl_file('.opensearch.primary.curlrc') returns:
 #   {
 #    'user': 'sikari',
 #    'password': 'changethis',
 #    'insecure': ''
 #   }
-def ParseCurlFile(curlCfgFileName):
+def parse_curl_file(curl_cfg_file_name):
     result = defaultdict(lambda: '')
-    if os.path.isfile(curlCfgFileName):
-        itemRegEx = re.compile(r'^([^\s:=]+)((\s*[:=]?\s*)(.*))?$')
-        with open(curlCfgFileName, 'r') as f:
-            allLines = [x.strip().lstrip('-') for x in f.readlines() if not x.startswith('#')]
-        for line in allLines:
-            found = itemRegEx.match(line)
+    if os.path.isfile(curl_cfg_file_name):
+        item_reg_ex = re.compile(r'^([^\s:=]+)((\s*[:=]?\s*)(.*))?$')
+        with open(curl_cfg_file_name, 'r') as f:
+            all_lines = [x.strip().lstrip('-') for x in f.readlines() if not x.startswith('#')]
+        for line in all_lines:
+            found = item_reg_ex.match(line)
             if found is not None:
                 key = found.group(1)
-                value = UnescapeForCurl(found.group(4).lstrip('"').rstrip('"'))
+                value = unescape_for_curl(found.group(4).lstrip('"').rstrip('"'))
                 if (key == 'user') and (':' in value):
-                    splitVal = value.split(':', 1)
-                    result[key] = splitVal[0]
-                    if len(splitVal) > 1:
-                        result['password'] = splitVal[1]
+                    split_val = value.split(':', 1)
+                    result[key] = split_val[0]
+                    if len(split_val) > 1:
+                        result['password'] = split_val[1]
                 else:
                     result[key] = value
 
@@ -476,63 +479,63 @@ def ParseCurlFile(curlCfgFileName):
 #
 # Example:
 #   d = {'meta': {'status': 'OK', 'status_code': 200}}
-#   DeepGet(d, ['meta', 'status_code'])          # => 200
-#   DeepGet(d, ['garbage', 'status_code'])       # => None
-#   DeepGet(d, ['meta', 'garbage'], default='-') # => '-'
-def DeepGet(d, keys, default=None):
-    k = GetIterable(keys)
+#   deep_get(d, ['meta', 'status_code'])          # => 200
+#   deep_get(d, ['garbage', 'status_code'])       # => None
+#   deep_get(d, ['meta', 'garbage'], default='-') # => '-'
+def deep_get(d, keys, default=None):
+    k = get_iterable(keys)
     if d is None:
         return default
     if not keys:
         return d
-    return DeepGet(d.get(k[0]), k[1:], default)
+    return deep_get(d.get(k[0]), k[1:], default)
 
 
 ###################################################################################################
 # convenience routine for setting-getting a value into a dictionary
-def DeepSet(d, keys, value, deleteIfNone=False):
-    k = GetIterable(keys)
+def deep_set(d, keys, value, delete_if_none=False):
+    k = get_iterable(keys)
     for key in k[:-1]:
         if (key not in d) or (not isinstance(d[key], dict)):
             d[key] = dict()
         d = d[key]
     d[k[-1]] = value
-    if deleteIfNone and (value is None):
+    if delete_if_none and (value is None):
         d.pop(k[-1], None)
 
 
 ###################################################################################################
 # Recursively merges 'source' dict into 'destination' dict. Values from 'source' override those
 #    in 'destination' at the same path.
-def DeepMerge(source, destination):
+def deep_merge(source, destination):
     for key, value in source.items():
         if isinstance(value, dict) and isinstance(destination.get(key), dict):
-            destination[key] = DeepMerge(value, destination[key])
+            destination[key] = deep_merge(value, destination[key])
         else:
             destination[key] = value
     return destination
 
 
-def DeepMergeInPlace(source, destination):
+def deep_mergeInPlace(source, destination):
     for key, value in source.items():
         if isinstance(value, dict) and isinstance(destination.get(key), dict):
-            DeepMerge(value, destination[key])
+            deep_merge(value, destination[key])
         else:
             destination[key] = value
 
 
 ###################################################################################################
 # recursive dictionary key search
-def DictSearch(d, target):
+def dict_search(d, target):
     val = filter(
-        None, [[b] if a == target else DictSearch(b, target) if isinstance(b, dict) else None for a, b in d.items()]
+        None, [[b] if a == target else dict_search(b, target) if isinstance(b, dict) else None for a, b in d.items()]
     )
     return [i for b in val for i in b]
 
 
 ###################################################################################################
 # given a dict, return the first value sorted by value
-def MinHashValueByValue(x):
+def min_hash_value_by_value(x):
     return next(
         iter(list({k: v for k, v in sorted(x.items(), key=lambda item: item[1])}.values())),
         None,
@@ -541,7 +544,7 @@ def MinHashValueByValue(x):
 
 ###################################################################################################
 # given a dict, return the first value sorted by key
-def MinHashValueByKey(x):
+def min_hash_value_by_key(x):
     return next(
         iter(list({k: v for k, v in sorted(x.items(), key=lambda item: item[0])}.values())),
         None,
@@ -550,7 +553,7 @@ def MinHashValueByKey(x):
 
 ###################################################################################################
 # given a dict, return the last value sorted by value
-def MaxHashValueByValue(x):
+def max_hash_value_by_value(x):
     try:
         *_, last = iter(list({k: v for k, v in sorted(x.items(), key=lambda item: item[1])}.values()))
     except Exception:
@@ -560,7 +563,7 @@ def MaxHashValueByValue(x):
 
 ###################################################################################################
 # given a dict, return the last value sorted by key
-def MaxHashValueByKey(x):
+def max_hash_value_by_key(x):
     try:
         *_, last = iter(list({k: v for k, v in sorted(x.items(), key=lambda item: item[0])}.values()))
     except Exception:
@@ -570,10 +573,10 @@ def MaxHashValueByKey(x):
 
 ###################################################################################################
 # flatten a collection, but don't split strings
-def Flatten(coll):
+def flatten(coll):
     for i in coll:
         if isinstance(i, Iterable) and not isinstance(i, str):
-            for subc in Flatten(i):
+            for subc in flatten(i):
                 yield subc
         else:
             yield i
@@ -582,7 +585,7 @@ def Flatten(coll):
 ###################################################################################################
 # if the object is an iterable, return it, otherwise return a tuple with it as a single element.
 # useful if you want to user either a scalar or an array in a loop, etc.
-def GetIterable(x):
+def get_iterable(x):
     if isinstance(x, Iterable) and not isinstance(x, str):
         return x
     else:
@@ -591,18 +594,18 @@ def GetIterable(x):
 
 ###################################################################################################
 # remove "empty" items from a collection
-def RemoveFalsy(obj):
+def remove_falsy(obj):
     if isinstance(obj, dict):
-        return {k: v for k, v in ((k, RemoveFalsy(v)) for k, v in obj.items()) if v}
+        return {k: v for k, v in ((k, remove_falsy(v)) for k, v in obj.items()) if v}
     elif isinstance(obj, list):
-        return [v for v in (RemoveFalsy(i) for i in obj) if v]
+        return [v for v in (remove_falsy(i) for i in obj) if v]
     else:
         return obj if obj else None
 
 
 ###################################################################################################
 # attempt to clear the screen
-def ClearScreen():
+def clear_screen():
     try:
         os.system("clear" if platform.system() != PLATFORM_WINDOWS else "cls")
     except Exception:
@@ -611,88 +614,88 @@ def ClearScreen():
 
 ###################################################################################################
 # get interactive user response to Y/N question
-def YesOrNo(
+def yes_or_no(
     question,
     default=None,
-    defaultBehavior=UserInputDefaultsBehavior.DefaultsPrompt,
-    uiMode=UserInterfaceMode.InteractionDialog | UserInterfaceMode.InteractionInput,
-    clearScreen=False,
-    yesLabel='Yes',
-    noLabel='No',
-    extraLabel=None,
+    default_behavior=UserInputDefaultsBehavior.DEFAULTS_PROMPT,
+    ui_mode=UserInterfaceMode.INTERACTION_DIALOG | UserInterfaceMode.INTERACTION_INPUT,
+    clear_screen=False,
+    yes_label='Yes',
+    no_label='No',
+    extra_label=None,
 ):
     result = None
 
     if (default is not None) and (
-        (defaultBehavior & UserInputDefaultsBehavior.DefaultsAccept)
-        and (defaultBehavior & UserInputDefaultsBehavior.DefaultsNonInteractive)
+        (default_behavior & UserInputDefaultsBehavior.DEFAULTS_ACCEPT)
+        and (default_behavior & UserInputDefaultsBehavior.DEFAULTS_NON_INTERACTIVE)
     ):
         reply = ""
 
-    elif (uiMode & UserInterfaceMode.InteractionDialog) and (_MainDialog is not None):
-        defaultYes = (default is not None) and str2boolorextra(default)
+    elif (ui_mode & UserInterfaceMode.INTERACTION_DIALOG) and (_main_dialog is not None):
+        default_yes = (default is not None) and str2bool_or_extra(default)
         # by default the "extra" button is between "Yes" and "No" which looks janky, IMO.
         #   so we're going to switch things around a bit.
-        yesLabelTmp = yesLabel.capitalize() if defaultYes else noLabel.capitalize()
-        noLabelTmp = noLabel.capitalize() if defaultYes else yesLabel.capitalize()
-        replyMap = {}
-        if hasExtraLabel := (extraLabel is not None):
-            replyMap[_Dialog.EXTRA] = _Dialog.CANCEL
-            replyMap[_Dialog.CANCEL] = _Dialog.EXTRA
-        reply = _MainDialog.yesno(
+        yes_labelTmp = yes_label.capitalize() if default_yes else no_label.capitalize()
+        no_labelTmp = no_label.capitalize() if default_yes else yes_label.capitalize()
+        reply_map = {}
+        if has_extra_label := (extra_label is not None):
+            reply_map[_dialog.EXTRA] = _dialog.CANCEL
+            reply_map[_dialog.CANCEL] = _dialog.EXTRA
+        reply = _main_dialog.yesno(
             str(question),
-            yes_label=str(yesLabelTmp),
-            no_label=str(extraLabel) if hasExtraLabel else str(noLabelTmp),
-            extra_button=hasExtraLabel,
-            extra_label=str(noLabelTmp) if hasExtraLabel else str(extraLabel),
+            yes_label=str(yes_labelTmp),
+            no_label=str(extra_label) if has_extra_label else str(no_labelTmp),
+            extra_button=has_extra_label,
+            extra_label=str(no_labelTmp) if has_extra_label else str(extra_label),
         )
-        reply = replyMap.get(reply, reply)
-        if defaultYes:
-            reply = 'y' if (reply == _Dialog.OK) else ('e' if (reply == _Dialog.EXTRA) else 'n')
+        reply = reply_map.get(reply, reply)
+        if default_yes:
+            reply = 'y' if (reply == _dialog.OK) else ('e' if (reply == _dialog.EXTRA) else 'n')
         else:
-            reply = 'n' if (reply == _Dialog.OK) else ('e' if (reply == _Dialog.EXTRA) else 'y')
+            reply = 'n' if (reply == _dialog.OK) else ('e' if (reply == _dialog.EXTRA) else 'y')
 
-    elif uiMode & UserInterfaceMode.InteractionInput:
-        if (default is not None) and defaultBehavior & UserInputDefaultsBehavior.DefaultsPrompt:
-            if str2boolorextra(default):
-                questionStr = f"\n{question} (Y{'' if yesLabel == 'Yes' else ' (' + yesLabel + ')'} / n{'' if noLabel == 'No' else ' (' + noLabel + ')'}): "
+    elif ui_mode & UserInterfaceMode.INTERACTION_INPUT:
+        if (default is not None) and default_behavior & UserInputDefaultsBehavior.DEFAULTS_PROMPT:
+            if str2bool_or_extra(default):
+                question_str = f"\n{question} (Y{'' if yes_label == 'Yes' else ' (' + yes_label + ')'} / n{'' if no_label == 'No' else ' (' + no_label + ')'}): "
             else:
-                questionStr = f"\n{question} (y{'' if yesLabel == 'Yes' else ' (' + yesLabel + ')'} / N{'' if noLabel == 'No' else ' (' + noLabel + ')'}): "
+                question_str = f"\n{question} (y{'' if yes_label == 'Yes' else ' (' + yes_label + ')'} / N{'' if no_label == 'No' else ' (' + no_label + ')'}): "
         else:
-            questionStr = f"\n{question} (Y{'' if yesLabel == 'Yes' else ' (' + yesLabel + ')'} / N{'' if noLabel == 'No' else ' (' + noLabel + ')'}): "
+            question_str = f"\n{question} (Y{'' if yes_label == 'Yes' else ' (' + yes_label + ')'} / N{'' if no_label == 'No' else ' (' + no_label + ')'}): "
 
         while True:
-            reply = str(input(questionStr)).lower().strip()
+            reply = str(input(question_str)).lower().strip()
             if len(reply) > 0:
                 try:
-                    str2boolorextra(reply)
+                    str2bool_or_extra(reply)
                     break
                 except ValueError:
                     pass
-            elif (defaultBehavior & UserInputDefaultsBehavior.DefaultsAccept) and (default is not None):
+            elif (default_behavior & UserInputDefaultsBehavior.DEFAULTS_ACCEPT) and (default is not None):
                 break
 
     else:
         raise RuntimeError("No user interfaces available")
 
-    if (len(reply) == 0) and (defaultBehavior & UserInputDefaultsBehavior.DefaultsAccept):
-        reply = "y" if (default is not None) and str2boolorextra(default) else "n"
+    if (len(reply) == 0) and (default_behavior & UserInputDefaultsBehavior.DEFAULTS_ACCEPT):
+        reply = "y" if (default is not None) and str2bool_or_extra(default) else "n"
 
-    if clearScreen is True:
-        ClearScreen()
+    if clear_screen is True:
+        clear_screen()
 
     try:
-        result = str2boolorextra(reply)
+        result = str2bool_or_extra(reply)
     except ValueError:
-        result = YesOrNo(
+        result = yes_or_no(
             question,
             default=default,
-            uiMode=uiMode,
-            defaultBehavior=defaultBehavior - UserInputDefaultsBehavior.DefaultsAccept,
-            clearScreen=clearScreen,
-            yesLabel=yesLabel,
-            noLabel=noLabel,
-            extraLabel=extraLabel,
+            ui_mode=ui_mode,
+            default_behavior=default_behavior - UserInputDefaultsBehavior.DEFAULTS_ACCEPT,
+            clear_screen=clear_screen,
+            yes_label=yes_label,
+            no_label=no_label,
+            extra_label=extra_label,
         )
 
     if result == BoolOrExtra.EXTRA:
@@ -703,92 +706,96 @@ def YesOrNo(
 
 ###################################################################################################
 # get interactive user response
-def AskForString(
+def ask_for_string(
     question,
     default=None,
-    defaultBehavior=UserInputDefaultsBehavior.DefaultsPrompt,
-    uiMode=UserInterfaceMode.InteractionDialog | UserInterfaceMode.InteractionInput,
-    clearScreen=False,
-    extraLabel=None,
+    default_behavior=UserInputDefaultsBehavior.DEFAULTS_PROMPT,
+    ui_mode=UserInterfaceMode.INTERACTION_DIALOG | UserInterfaceMode.INTERACTION_INPUT,
+    clear_screen=False,
+    extra_label=None,
 ):
     if (default is not None) and (
-        (defaultBehavior & UserInputDefaultsBehavior.DefaultsAccept)
-        and (defaultBehavior & UserInputDefaultsBehavior.DefaultsNonInteractive)
+        (default_behavior & UserInputDefaultsBehavior.DEFAULTS_ACCEPT)
+        and (default_behavior & UserInputDefaultsBehavior.DEFAULTS_NON_INTERACTIVE)
     ):
         reply = default
 
-    elif (uiMode & UserInterfaceMode.InteractionDialog) and (_MainDialog is not None):
-        code, reply = _MainDialog.inputbox(
+    elif (ui_mode & UserInterfaceMode.INTERACTION_DIALOG) and (_main_dialog is not None):
+        code, reply = _main_dialog.inputbox(
             str(question),
             init=(
                 default
-                if (default is not None) and (defaultBehavior & UserInputDefaultsBehavior.DefaultsPrompt)
+                if (default is not None) and (default_behavior & UserInputDefaultsBehavior.DEFAULTS_PROMPT)
                 else ""
             ),
-            extra_button=(extraLabel is not None),
-            extra_label=str(extraLabel),
+            extra_button=(extra_label is not None),
+            extra_label=str(extra_label),
         )
-        if (code == _Dialog.CANCEL) or (code == _Dialog.ESC):
+        if (code == _dialog.CANCEL) or (code == _dialog.ESC):
             raise _DialogCanceledException(question)
-        elif code == _Dialog.EXTRA:
+        elif code == _dialog.EXTRA:
             raise _DialogBackException(question)
         else:
             reply = reply.strip()
 
-    elif uiMode & UserInterfaceMode.InteractionInput:
+    elif ui_mode & UserInterfaceMode.INTERACTION_INPUT:
         reply = str(
             input(
-                f"\n{question}{f' ({default})' if (default is not None) and (defaultBehavior & UserInputDefaultsBehavior.DefaultsPrompt) else ''}: "
+                f"\n{question}{f' ({default})' if (default is not None) and (default_behavior & UserInputDefaultsBehavior.DEFAULTS_PROMPT) else ''}: "
             )
         ).strip()
-        if (len(reply) == 0) and (default is not None) and (defaultBehavior & UserInputDefaultsBehavior.DefaultsAccept):
+        if (
+            (len(reply) == 0)
+            and (default is not None)
+            and (default_behavior & UserInputDefaultsBehavior.DEFAULTS_ACCEPT)
+        ):
             reply = default
 
     else:
         raise RuntimeError("No user interfaces available")
 
-    if clearScreen is True:
-        ClearScreen()
+    if clear_screen is True:
+        clear_screen()
 
     return reply
 
 
 ###################################################################################################
 # get interactive password (without echoing)
-def AskForPassword(
+def ask_for_password(
     prompt,
     default=None,
-    defaultBehavior=UserInputDefaultsBehavior.DefaultsPrompt,
-    uiMode=UserInterfaceMode.InteractionDialog | UserInterfaceMode.InteractionInput,
-    clearScreen=False,
-    extraLabel=None,
+    default_behavior=UserInputDefaultsBehavior.DEFAULTS_PROMPT,
+    ui_mode=UserInterfaceMode.INTERACTION_DIALOG | UserInterfaceMode.INTERACTION_INPUT,
+    clear_screen=False,
+    extra_label=None,
 ):
     if (default is not None) and (
-        (defaultBehavior & UserInputDefaultsBehavior.DefaultsAccept)
-        and (defaultBehavior & UserInputDefaultsBehavior.DefaultsNonInteractive)
+        (default_behavior & UserInputDefaultsBehavior.DEFAULTS_ACCEPT)
+        and (default_behavior & UserInputDefaultsBehavior.DEFAULTS_NON_INTERACTIVE)
     ):
         reply = default
 
-    elif (uiMode & UserInterfaceMode.InteractionDialog) and (_MainDialog is not None):
-        code, reply = _MainDialog.passwordbox(
+    elif (ui_mode & UserInterfaceMode.INTERACTION_DIALOG) and (_main_dialog is not None):
+        code, reply = _main_dialog.passwordbox(
             str(prompt),
             insecure=True,
-            extra_button=(extraLabel is not None),
-            extra_label=str(extraLabel),
+            extra_button=(extra_label is not None),
+            extra_label=str(extra_label),
         )
-        if (code == _Dialog.CANCEL) or (code == _Dialog.ESC):
+        if (code == _dialog.CANCEL) or (code == _dialog.ESC):
             raise _DialogCanceledException(prompt)
-        elif code == _Dialog.EXTRA:
+        elif code == _dialog.EXTRA:
             raise _DialogBackException(prompt)
 
-    elif uiMode & UserInterfaceMode.InteractionInput:
+    elif ui_mode & UserInterfaceMode.INTERACTION_INPUT:
         reply = getpass.getpass(prompt=f"{prompt}: ")
 
     else:
         raise RuntimeError("No user interfaces available")
 
-    if clearScreen is True:
-        ClearScreen()
+    if clear_screen is True:
+        clear_screen()
 
     return reply
 
@@ -799,63 +806,63 @@ def AskForPassword(
 # selected/unselected state of each entry; can be True or False, 1 or 0, "on" or "off"
 # (True, 1 and "on" meaning selected), or any case variation of these two strings.
 # No more than one entry should be set to True.
-def ChooseOne(
+def choose_one(
     prompt,
     choices=[],
-    defaultBehavior=UserInputDefaultsBehavior.DefaultsPrompt,
-    uiMode=UserInterfaceMode.InteractionDialog | UserInterfaceMode.InteractionInput,
-    clearScreen=False,
-    extraLabel=None,
+    default_behavior=UserInputDefaultsBehavior.DEFAULTS_PROMPT,
+    ui_mode=UserInterfaceMode.INTERACTION_DIALOG | UserInterfaceMode.INTERACTION_INPUT,
+    clear_screen=False,
+    extra_label=None,
 ):
-    validChoices = [x for x in choices if len(x) == 3 and isinstance(x[0], str) and isinstance(x[2], bool)]
-    defaulted = next(iter([x for x in validChoices if x[2] is True]), None)
+    valid_choices = [x for x in choices if len(x) == 3 and isinstance(x[0], str) and isinstance(x[2], bool)]
+    defaulted = next(iter([x for x in valid_choices if x[2] is True]), None)
 
-    if (defaultBehavior & UserInputDefaultsBehavior.DefaultsAccept) and (
-        defaultBehavior & UserInputDefaultsBehavior.DefaultsNonInteractive
+    if (default_behavior & UserInputDefaultsBehavior.DEFAULTS_ACCEPT) and (
+        default_behavior & UserInputDefaultsBehavior.DEFAULTS_NON_INTERACTIVE
     ):
         reply = defaulted[0] if defaulted is not None else ""
 
-    elif (uiMode & UserInterfaceMode.InteractionDialog) and (_MainDialog is not None):
-        code, reply = _MainDialog.radiolist(
+    elif (ui_mode & UserInterfaceMode.INTERACTION_DIALOG) and (_main_dialog is not None):
+        code, reply = _main_dialog.radiolist(
             str(prompt),
-            choices=validChoices,
-            extra_button=(extraLabel is not None),
-            extra_label=str(extraLabel),
+            choices=valid_choices,
+            extra_button=(extra_label is not None),
+            extra_label=str(extra_label),
         )
-        if code == _Dialog.CANCEL or code == _Dialog.ESC:
+        if code == _dialog.CANCEL or code == _dialog.ESC:
             raise _DialogCanceledException(prompt)
-        elif code == _Dialog.EXTRA:
+        elif code == _dialog.EXTRA:
             raise _DialogBackException(prompt)
 
-    elif uiMode & UserInterfaceMode.InteractionInput:
+    elif ui_mode & UserInterfaceMode.INTERACTION_INPUT:
         index = 0
-        for choice in validChoices:
+        for choice in valid_choices:
             index = index + 1
             print(
                 f"{index}: {choice[0]}{f' - {choice[1]}' if isinstance(choice[1], str) and len(choice[1]) > 0 else ''}"
             )
         while True:
-            inputRaw = input(
-                f"{prompt}{f' ({defaulted[0]})' if (defaulted is not None) and (defaultBehavior & UserInputDefaultsBehavior.DefaultsPrompt) else ''}: "
+            input_raw = input(
+                f"{prompt}{f' ({defaulted[0]})' if (defaulted is not None) and (default_behavior & UserInputDefaultsBehavior.DEFAULTS_PROMPT) else ''}: "
             ).strip()
             if (
-                (len(inputRaw) == 0)
+                (len(input_raw) == 0)
                 and (defaulted is not None)
-                and (defaultBehavior & UserInputDefaultsBehavior.DefaultsAccept)
+                and (default_behavior & UserInputDefaultsBehavior.DEFAULTS_ACCEPT)
             ):
                 reply = defaulted[0]
                 break
-            elif (len(inputRaw) > 0) and inputRaw.isnumeric():
-                inputIndex = int(inputRaw) - 1
-                if inputIndex > -1 and inputIndex < len(validChoices):
-                    reply = validChoices[inputIndex][0]
+            elif (len(input_raw) > 0) and input_raw.isnumeric():
+                input_index = int(input_raw) - 1
+                if input_index > -1 and input_index < len(valid_choices):
+                    reply = valid_choices[input_index][0]
                     break
 
     else:
         raise RuntimeError("No user interfaces available")
 
-    if clearScreen is True:
-        ClearScreen()
+    if clear_screen is True:
+        clear_screen()
 
     return reply
 
@@ -865,101 +872,101 @@ def ChooseOne(
 # choices - an iterable of (tag, item, status) tuples where status specifies the initial
 # selected/unselected state of each entry; can be True or False, 1 or 0, "on" or "off"
 # (True, 1 and "on" meaning selected), or any case variation of these two strings.
-def ChooseMultiple(
+def choose_multiple(
     prompt,
     choices=[],
-    defaultBehavior=UserInputDefaultsBehavior.DefaultsPrompt,
-    uiMode=UserInterfaceMode.InteractionDialog | UserInterfaceMode.InteractionInput,
-    clearScreen=False,
-    extraLabel=None,
+    default_behavior=UserInputDefaultsBehavior.DEFAULTS_PROMPT,
+    ui_mode=UserInterfaceMode.INTERACTION_DIALOG | UserInterfaceMode.INTERACTION_INPUT,
+    clear_screen=False,
+    extra_label=None,
 ):
-    validChoices = [x for x in choices if len(x) == 3 and isinstance(x[0], str) and isinstance(x[2], bool)]
-    defaulted = [x[0] for x in validChoices if x[2] is True]
+    valid_choices = [x for x in choices if len(x) == 3 and isinstance(x[0], str) and isinstance(x[2], bool)]
+    defaulted = [x[0] for x in valid_choices if x[2] is True]
 
-    if (defaultBehavior & UserInputDefaultsBehavior.DefaultsAccept) and (
-        defaultBehavior & UserInputDefaultsBehavior.DefaultsNonInteractive
+    if (default_behavior & UserInputDefaultsBehavior.DEFAULTS_ACCEPT) and (
+        default_behavior & UserInputDefaultsBehavior.DEFAULTS_NON_INTERACTIVE
     ):
         reply = defaulted
 
-    elif (uiMode & UserInterfaceMode.InteractionDialog) and (_MainDialog is not None):
-        code, reply = _MainDialog.checklist(
+    elif (ui_mode & UserInterfaceMode.INTERACTION_DIALOG) and (_main_dialog is not None):
+        code, reply = _main_dialog.checklist(
             str(prompt),
-            choices=validChoices,
-            extra_button=(extraLabel is not None),
-            extra_label=str(extraLabel),
+            choices=valid_choices,
+            extra_button=(extra_label is not None),
+            extra_label=str(extra_label),
         )
-        if code == _Dialog.CANCEL or code == _Dialog.ESC:
+        if code == _dialog.CANCEL or code == _dialog.ESC:
             raise _DialogCanceledException(prompt)
-        elif code == _Dialog.EXTRA:
+        elif code == _dialog.EXTRA:
             raise _DialogBackException(prompt)
 
-    elif uiMode & UserInterfaceMode.InteractionInput:
-        allowedChars = set(string.digits + ',' + ' ')
-        defaultValListStr = ",".join(defaulted)
+    elif ui_mode & UserInterfaceMode.INTERACTION_INPUT:
+        allowed_chars = set(string.digits + ',' + ' ')
+        default_val_list_str = ",".join(defaulted)
         print("0: NONE")
         index = 0
-        for choice in validChoices:
+        for choice in valid_choices:
             index = index + 1
             print(
                 f"{index}: {choice[0]}{f' - {choice[1]}' if isinstance(choice[1], str) and len(choice[1]) > 0 else ''}"
             )
         while True:
-            inputRaw = input(
-                f"{prompt}{f' ({defaultValListStr})' if (len(defaultValListStr) > 0) and (defaultBehavior & UserInputDefaultsBehavior.DefaultsPrompt) else ''}: "
+            input_raw = input(
+                f"{prompt}{f' ({default_val_list_str})' if (len(default_val_list_str) > 0) and (default_behavior & UserInputDefaultsBehavior.DEFAULTS_PROMPT) else ''}: "
             ).strip()
             if (
-                (len(inputRaw) == 0)
+                (len(input_raw) == 0)
                 and (len(defaulted) > 0)
-                and (defaultBehavior & UserInputDefaultsBehavior.DefaultsAccept)
+                and (default_behavior & UserInputDefaultsBehavior.DEFAULTS_ACCEPT)
             ):
                 reply = defaulted
                 break
-            elif inputRaw == '0':
+            elif input_raw == '0':
                 reply = []
                 break
-            elif (len(inputRaw) > 0) and (set(inputRaw) <= allowedChars):
+            elif (len(input_raw) > 0) and (set(input_raw) <= allowed_chars):
                 reply = []
-                selectedIndexes = list(set([int(x.strip()) - 1 for x in inputRaw.split(',') if (len(x.strip())) > 0]))
-                for idx in selectedIndexes:
-                    if idx > -1 and idx < len(validChoices):
-                        reply.append(validChoices[idx][0])
+                selected_indexes = list(set([int(x.strip()) - 1 for x in input_raw.split(',') if (len(x.strip())) > 0]))
+                for idx in selected_indexes:
+                    if idx > -1 and idx < len(valid_choices):
+                        reply.append(valid_choices[idx][0])
                 if len(reply) > 0:
                     break
 
     else:
         raise RuntimeError("No user interfaces available")
 
-    if clearScreen is True:
-        ClearScreen()
+    if clear_screen is True:
+        clear_screen()
 
     return reply
 
 
 ###################################################################################################
 # display a message to the user without feedback
-def DisplayMessage(
+def display_message(
     message,
-    defaultBehavior=UserInputDefaultsBehavior.DefaultsPrompt,
-    uiMode=UserInterfaceMode.InteractionDialog | UserInterfaceMode.InteractionInput,
-    clearScreen=False,
-    extraLabel=None,
+    default_behavior=UserInputDefaultsBehavior.DEFAULTS_PROMPT,
+    ui_mode=UserInterfaceMode.INTERACTION_DIALOG | UserInterfaceMode.INTERACTION_INPUT,
+    clear_screen=False,
+    extra_label=None,
 ):
     reply = False
 
-    if (defaultBehavior & UserInputDefaultsBehavior.DefaultsAccept) and (
-        defaultBehavior & UserInputDefaultsBehavior.DefaultsNonInteractive
+    if (default_behavior & UserInputDefaultsBehavior.DEFAULTS_ACCEPT) and (
+        default_behavior & UserInputDefaultsBehavior.DEFAULTS_NON_INTERACTIVE
     ):
         reply = True
 
-    elif (uiMode & UserInterfaceMode.InteractionDialog) and (_MainDialog is not None):
-        code = _MainDialog.msgbox(
+    elif (ui_mode & UserInterfaceMode.INTERACTION_DIALOG) and (_main_dialog is not None):
+        code = _main_dialog.msgbox(
             str(message),
-            extra_button=(extraLabel is not None),
-            extra_label=str(extraLabel),
+            extra_button=(extra_label is not None),
+            extra_label=str(extra_label),
         )
-        if (code == _Dialog.CANCEL) or (code == _Dialog.ESC):
+        if (code == _dialog.CANCEL) or (code == _dialog.ESC):
             raise _DialogCanceledException(message)
-        elif code == _Dialog.EXTRA:
+        elif code == _dialog.EXTRA:
             raise _DialogBackException(message)
         else:
             reply = True
@@ -968,51 +975,51 @@ def DisplayMessage(
         print(f"\n{message}")
         reply = True
 
-    if clearScreen is True:
-        ClearScreen()
+    if clear_screen is True:
+        clear_screen()
 
     return reply
 
 
 ###################################################################################################
-# display streaming content via _Dialog.programbox
-def DisplayProgramBox(
-    filePath=None,
-    fileFlags=0,
-    fileDescriptor=None,
+# display streaming content via _dialog.programbox
+def display_program_box(
+    file_path=None,
+    file_flags=0,
+    file_descriptor=None,
     text=None,
-    clearScreen=False,
-    extraLabel=None,
+    clear_screen=False,
+    extra_label=None,
 ):
     reply = False
 
-    if _MainDialog is not None:
-        code = _MainDialog.programbox(
-            file_path=filePath,
-            file_flags=fileFlags,
-            fd=fileDescriptor,
+    if _main_dialog is not None:
+        code = _main_dialog.programbox(
+            file_path=file_path,
+            file_flags=file_flags,
+            fd=file_descriptor,
             text=text,
             width=78,
             height=20,
-            extra_button=(extraLabel is not None),
-            extra_label=str(extraLabel),
+            extra_button=(extra_label is not None),
+            extra_label=str(extra_label),
         )
-        if (code == _Dialog.CANCEL) or (code == _Dialog.ESC):
+        if (code == _dialog.CANCEL) or (code == _dialog.ESC):
             raise _DialogCanceledException()
-        elif code == _Dialog.EXTRA:
+        elif code == _dialog.EXTRA:
             raise _DialogBackException()
         else:
             reply = True
 
-            if clearScreen is True:
-                ClearScreen()
+            if clear_screen is True:
+                clear_screen()
 
     return reply
 
 
 ###################################################################################################
 # decode a string as base64 only if it starts with base64:, otherwise just return
-def Base64DecodeIfPrefixed(s: str):
+def base64_decode_if_prefixed(s: str):
     if s.startswith('base64:'):
         return b64decode(s[7:]).decode('utf-8')
     else:
@@ -1021,7 +1028,7 @@ def Base64DecodeIfPrefixed(s: str):
 
 ###################################################################################################
 # strip a prefix from the beginning of a string if needed
-def RemovePrefix(text, prefix):
+def remove_prefix(text, prefix):
     if (len(prefix) > 0) and text.startswith(prefix):
         return text[len(prefix) :]
     else:
@@ -1030,7 +1037,7 @@ def RemovePrefix(text, prefix):
 
 ###################################################################################################
 # strip a suffix from the end of a string if needed
-def RemoveSuffix(text, suffix):
+def remove_suffix(text, suffix):
     if (len(suffix) > 0) and text.endswith(suffix):
         return text[: len(text) - len(suffix)]
     else:
@@ -1039,7 +1046,7 @@ def RemoveSuffix(text, suffix):
 
 ###################################################################################################
 # return true if os.path.samefile, also False on exception
-def SameFileOrDir(path1, path2):
+def same_file_or_dir(path1, path2):
     try:
         return os.path.samefile(path1, path2)
     except Exception:
@@ -1048,19 +1055,19 @@ def SameFileOrDir(path1, path2):
 
 ###################################################################################################
 # determine if a program/script exists and is executable in the system path
-def Which(cmd, debug=False):
-    if _HasWhich:
-        result = which(cmd) is not None
+def which(cmd, debug=False):
+    if _has_which:
+        result = _shutil_which(cmd) is not None
     else:
         result = any(os.access(os.path.join(path, cmd), os.X_OK) for path in os.environ["PATH"].split(os.pathsep))
     if debug:
-        eprint(f"Which({_HasWhich}) {cmd} returned {result}")
+        eprint(f"which({_has_which}) {cmd} returned {result}")
     return result
 
 
 ###################################################################################################
 # calculate a sha256 hash of a file
-def sha256sum(filename):
+def sha256_sum(filename):
     try:
         h = hashlib.sha256()
         b = bytearray(64 * 1024)
@@ -1075,7 +1082,7 @@ def sha256sum(filename):
 
 ###################################################################################################
 # calculate SHAKE256 hash of a file
-def shakeysum(filename, digest_len=8):
+def shakey_sum(filename, digest_len=8):
     try:
         with open(filename, 'rb', buffering=0) as f:
             return hashlib.file_digest(f, 'shake_256').hexdigest(digest_len)
@@ -1085,7 +1092,7 @@ def shakeysum(filename, digest_len=8):
 
 ###################################################################################################
 # nice human-readable file sizes
-def SizeHumanFormat(num, suffix="B"):
+def size_human_format(num, suffix="B"):
     for unit in ["", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"]:
         if abs(num) < 1024.0:
             return f"{num:3.1f}{unit}{suffix}"
@@ -1095,7 +1102,7 @@ def SizeHumanFormat(num, suffix="B"):
 
 ###################################################################################################
 # test if a remote port is open
-def TestSocket(host, port):
+def test_socket(host, port):
     with contextlib.closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as sock:
         sock.settimeout(10)
         if sock.connect_ex((host, port)) == 0:
@@ -1106,7 +1113,7 @@ def TestSocket(host, port):
 
 ###################################################################################################
 # return the primary IP (the one with a default route) on the local box
-def GetPrimaryIP():
+def get_primary_ip():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.settimeout(0)
     try:
@@ -1122,29 +1129,29 @@ def GetPrimaryIP():
 
 ###################################################################################################
 # attempt to decode a string as JSON, returning the object if it decodes and None otherwise
-def LoadStrIfJson(jsonStr):
+def load_str_if_json(json_str):
     try:
-        return json.loads(jsonStr)
+        return json.loads(json_str)
     except ValueError:
         return None
 
 
 ###################################################################################################
 # attempt to decode a file (given by handle) as JSON, returning the object if it decodes and
-# None otherwise. Also, if attemptLines=True, attempt to handle cases of a file containing
+# None otherwise. Also, if attempt_lines=True, attempt to handle cases of a file containing
 # individual lines of valid JSON.
-def LoadFileIfJson(fileHandle, attemptLines=False):
-    if fileHandle is not None:
+def load_file_if_json(file_handle, attempt_lines=False):
+    if file_handle is not None:
 
         try:
-            result = json.load(fileHandle)
+            result = json.load(file_handle)
         except ValueError:
             result = None
 
-        if (result is None) and attemptLines:
-            fileHandle.seek(0)
+        if (result is None) and attempt_lines:
+            file_handle.seek(0)
             result = []
-            for line in fileHandle:
+            for line in file_handle:
                 try:
                     result.append(json.loads(line))
                 except ValueError:
@@ -1160,24 +1167,24 @@ def LoadFileIfJson(fileHandle, attemptLines=False):
 
 ###################################################################################################
 # JSON serializer with better support for objects
-def JsonObjSerializer(obj):
+def json_obj_serializer(obj):
     if isinstance(obj, datetime):
-        return obj.astimezone(UTCTimeZone).isoformat()
+        return obj.astimezone(utc_time_zone).isoformat()
 
     elif isinstance(obj, GeneratorType):
-        return [JsonObjSerializer(item) for item in obj]
+        return [json_obj_serializer(item) for item in obj]
 
     elif isinstance(obj, list):
-        return [JsonObjSerializer(item) for item in obj]
+        return [json_obj_serializer(item) for item in obj]
 
     elif isinstance(obj, dict):
-        return {key: JsonObjSerializer(value) for key, value in obj.items()}
+        return {key: json_obj_serializer(value) for key, value in obj.items()}
 
     elif isinstance(obj, set):
-        return {JsonObjSerializer(item) for item in obj}
+        return {json_obj_serializer(item) for item in obj}
 
     elif isinstance(obj, tuple):
-        return tuple(JsonObjSerializer(item) for item in obj)
+        return tuple(json_obj_serializer(item) for item in obj)
 
     elif isinstance(obj, FunctionType):
         return f"function {obj.__name__}" if obj.__name__ != "<lambda>" else "lambda"
@@ -1196,7 +1203,7 @@ def JsonObjSerializer(obj):
 
 ###################################################################################################
 # run command with arguments and return its exit code, stdout, and stderr
-def CheckOutputInput(*popenargs, **kwargs):
+def check_output_input(*popenargs, **kwargs):
     if 'stdout' in kwargs:
         raise ValueError('stdout argument not allowed, it will be overridden')
 
@@ -1227,13 +1234,13 @@ def CheckOutputInput(*popenargs, **kwargs):
 
 ###################################################################################################
 # run command with arguments and return its exit code, stdout, and stderr
-def RunProcess(
+def run_process(
     command,
     stdout=True,
     stderr=True,
     stdin=None,
     retry=0,
-    retrySleepSec=5,
+    retry_sleep_sec=5,
     cwd=None,
     env=None,
     debug=False,
@@ -1241,11 +1248,11 @@ def RunProcess(
 ):
     retcode = -1
     output = []
-    flat_command = list(Flatten(GetIterable(command)))
+    flat_command = list(flatten(get_iterable(command)))
 
     try:
         # run the command
-        retcode, cmdout, cmderr = CheckOutputInput(
+        retcode, cmdout, cmderr = check_output_input(
             flat_command,
             input=stdin.encode() if stdin else None,
             cwd=cwd,
@@ -1263,24 +1270,24 @@ def RunProcess(
             output.append(f"Command {flat_command} not found or unable to execute")
 
     if debug:
-        dbgStr = (
+        dbg_str = (
             f"{flat_command} ({stdin[:80] + bool(stdin[80:]) * '...' if stdin else ''}) returned {retcode}: {output}"
         )
         if logger is not None:
-            logger.debug(dbgStr)
+            logger.debug(dbg_str)
         else:
-            eprint(dbgStr)
+            eprint(dbg_str)
 
     if (retcode != 0) and retry and (retry > 0):
         # sleep then retry
-        time.sleep(retrySleepSec)
-        return RunProcess(
+        time.sleep(retry_sleep_sec)
+        return run_process(
             flat_command,
             stdout,
             stderr,
             stdin,
             retry - 1,
-            retrySleepSec,
+            retry_sleep_sec,
             cwd,
             env,
             debug,
@@ -1292,7 +1299,7 @@ def RunProcess(
 
 ###################################################################################################
 # execute a shell process returning its exit code and output
-def RunSubProcess(command, stdout=True, stderr=False, stdin=None, timeout=60):
+def run_sub_process(command, stdout=True, stderr=False, stdin=None, timeout=60):
     retcode = -1
     output = []
     p = SubProcessRun(
@@ -1315,7 +1322,7 @@ def RunSubProcess(command, stdout=True, stderr=False, stdin=None, timeout=60):
 
 ###################################################################################################
 # return the name of the calling function as a string
-def GetFunctionName(depth=0):
+def get_function_name(depth=0):
     try:
         frame = inspect.currentframe()
         for _ in range(depth + 1):
@@ -1331,104 +1338,104 @@ def GetFunctionName(depth=0):
 
 ###################################################################################################
 # attempt dynamic imports, prompting for install via pip if possible
-_DynImports = defaultdict(lambda: None)
+_dyn_imports = defaultdict(lambda: None)
 
 
-def DoDynamicImport(importName, pipPkgName, interactive=False, debug=False):
+def dynamic_import(import_name, pip_pkg_name, interactive=False, debug=False):
     # see if we've already imported it
-    if not _DynImports[importName]:
+    if not _dyn_imports[import_name]:
         # if not, attempt the import
         try:
-            tmpImport = importlib.import_module(importName)
-            if tmpImport:
-                _DynImports[importName] = tmpImport
-                return _DynImports[importName]
+            tmp_import = importlib.import_module(import_name)
+            if tmp_import:
+                _dyn_imports[import_name] = tmp_import
+                return _dyn_imports[import_name]
         except Exception:
             pass
 
         # see if we can help out by installing the module
 
-        pyPlatform = platform.system()
-        pyExec = sys.executable
-        pipCmd = "pip3"
-        if not (pipFound := Which(pipCmd, debug=debug)):
-            err, out = RunProcess([sys.executable, '-m', 'pip', '--version'], debug=debug)
-            if out and (pipFound := (err == 0)):
-                pipCmd = [sys.executable, '-m', 'pip']
+        py_platform = platform.system()
+        py_exec = sys.executable
+        pip_cmd = "pip3"
+        if not (pip_found := which(pip_cmd, debug=debug)):
+            err, out = run_process([sys.executable, '-m', 'pip', '--version'], debug=debug)
+            if out and (pip_found := (err == 0)):
+                pip_cmd = [sys.executable, '-m', 'pip']
 
-        eprint(f"The {pipPkgName} module is required under Python {platform.python_version()} ({pyExec})")
+        eprint(f"The {pip_pkg_name} module is required under Python {platform.python_version()} ({py_exec})")
 
-        if interactive and pipFound:
-            if YesOrNo(f"Importing the {pipPkgName} module failed. Attempt to install via {pipCmd}?"):
-                installCmd = None
+        if interactive and pip_found:
+            if yes_or_no(f"Importing the {pip_pkg_name} module failed. Attempt to install via {pip_cmd}?"):
+                install_cmd = None
 
-                if (pyPlatform == PLATFORM_LINUX) or (pyPlatform == PLATFORM_MAC):
+                if (py_platform == PLATFORM_LINUX) or (py_platform == PLATFORM_MAC):
                     # for linux/mac, we're going to try to figure out if this python is owned by root or the script user
-                    if getpass.getuser() == getpwuid(os.stat(pyExec).st_uid).pw_name:
+                    if getpass.getuser() == getpwuid(os.stat(py_exec).st_uid).pw_name:
                         # we're running a user-owned python, regular pip should work
-                        installCmd = [pipCmd, "install", pipPkgName]
+                        install_cmd = [pip_cmd, "install", pip_pkg_name]
                     else:
                         # python is owned by system, so make sure to pass the --user flag
-                        installCmd = [pipCmd, "install", "--user", pipPkgName]
+                        install_cmd = [pip_cmd, "install", "--user", pip_pkg_name]
                 else:
                     # on windows (or whatever other platform this is) I don't know any other way other than pip
-                    installCmd = [pipCmd, "install", pipPkgName]
+                    install_cmd = [pip_cmd, "install", pip_pkg_name]
 
-                err, out = RunProcess(installCmd, debug=debug)
+                err, out = run_process(install_cmd, debug=debug)
                 if err == 0:
-                    eprint(f"Installation of {pipPkgName} module apparently succeeded")
+                    eprint(f"Installation of {pip_pkg_name} module apparently succeeded")
                     importlib.reload(site)
                     importlib.invalidate_caches()
                     try:
-                        tmpImport = importlib.import_module(importName)
-                        if tmpImport:
-                            _DynImports[importName] = tmpImport
+                        tmp_import = importlib.import_module(import_name)
+                        if tmp_import:
+                            _dyn_imports[import_name] = tmp_import
                     except Exception as e:
-                        eprint(f"Importing the {importName} module still failed: {e}")
+                        eprint(f"Importing the {import_name} module still failed: {e}")
                 else:
-                    eprint(f"Installation of {importName} module failed: {out}")
+                    eprint(f"Installation of {import_name} module failed: {out}")
 
-    if not _DynImports[importName]:
+    if not _dyn_imports[import_name]:
         eprint(
             "System-wide installation varies by platform and Python configuration. Please consult platform-specific documentation for installing Python modules."
         )
 
-    return _DynImports[importName]
+    return _dyn_imports[import_name]
 
 
 ###################################################################################################
 # download to file
-def DownloadToFile(url, local_filename, chunk_size=4096, interactive=False, debug=False):
-    requests = DoDynamicImport("requests", "requests", interactive=interactive, debug=debug)
+def download_to_file(url, local_filename, chunk_size=4096, interactive=False, debug=False):
+    requests = dynamic_import("requests", "requests", interactive=interactive, debug=debug)
 
     r = requests.get(url, stream=True, allow_redirects=True)
     with open(local_filename, "wb") as f:
         for chunk in r.iter_content(chunk_size=chunk_size):
             if chunk:
                 f.write(chunk)
-    fExists = os.path.isfile(local_filename)
-    fSize = os.path.getsize(local_filename)
+    f_exists = os.path.isfile(local_filename)
+    f_size = os.path.getsize(local_filename)
     if debug:
         eprint(
-            f"Download of {url} to {local_filename} {'succeeded' if fExists else 'failed'} ({SizeHumanFormat(fSize)})"
+            f"Download of {url} to {local_filename} {'succeeded' if f_exists else 'failed'} ({size_human_format(f_size)})"
         )
-    return fExists and (fSize > 0)
+    return f_exists and (f_size > 0)
 
 
 ###################################################################################################
 # create a local git clone
-def GitClone(
+def git_clone(
     url,
     local_dir,
     depth=2147483647,
     recursive=True,
-    singleBranch=False,
-    recurseSubmodules=True,
-    shallowSubmodules=True,
-    noTags=False,
+    single_branch=False,
+    recurse_submodules=True,
+    shallow_submodules=True,
+    no_tags=False,
     interactive=False,
 ):
-    git = DoDynamicImport("git", "GitPython", interactive=interactive)
+    git = dynamic_import("git", "GitPython", interactive=interactive)
 
     git.Repo.clone_from(
         url,
@@ -1436,17 +1443,17 @@ def GitClone(
         **{
             "depth": depth,
             "recursive": recursive,
-            "single-branch": singleBranch,
-            "recurse-submodules": recurseSubmodules,
-            "shallow-submodules": shallowSubmodules,
-            "no-tags": noTags,
+            "single-branch": single_branch,
+            "recurse-submodules": recurse_submodules,
+            "shallow-submodules": shallow_submodules,
+            "no-tags": no_tags,
         },
     )
 
 
 ###################################################################################################
 # "chown -R" a file or directory
-def ChownRecursive(path, uid, gid):
+def chown_recursive(path, uid, gid):
     os.chown(path, int(uid), int(gid))
     if os.path.isdir(path):
         for dirpath, dirnames, filenames in os.walk(path, followlinks=False):
@@ -1458,7 +1465,7 @@ def ChownRecursive(path, uid, gid):
 
 ###################################################################################################
 # recursively delete a directory tree while excluding specific files based on glob-style patterns
-def RmtreeExcept(path, exclude_patterns=None, ignore_errors=False):
+def rmtree_except(path, exclude_patterns=None, ignore_errors=False):
     if exclude_patterns is None:
         exclude_patterns = []
 
@@ -1468,7 +1475,7 @@ def RmtreeExcept(path, exclude_patterns=None, ignore_errors=False):
             if not any(fnmatch.fnmatch(name, pattern) for pattern in exclude_patterns):
                 try:
                     os.remove(full_path)
-                except Exception as e:
+                except Exception:
                     if not ignore_errors:
                         raise
 
@@ -1493,7 +1500,7 @@ def RmtreeExcept(path, exclude_patterns=None, ignore_errors=False):
 
 ###################################################################################################
 # recursively remove empty subfolders
-def RemoveEmptyFolders(path, removeRoot=True):
+def remove_empty_folders(path, remove_root=True):
     if not os.path.isdir(path):
         return
 
@@ -1502,10 +1509,10 @@ def RemoveEmptyFolders(path, removeRoot=True):
         for f in files:
             fullpath = os.path.join(path, f)
             if os.path.isdir(fullpath):
-                RemoveEmptyFolders(fullpath)
+                remove_empty_folders(fullpath)
 
     files = os.listdir(path)
-    if len(files) == 0 and removeRoot:
+    if len(files) == 0 and remove_root:
         try:
             os.rmdir(path)
         except Exception:
