@@ -6,6 +6,7 @@ import getpass
 import hashlib
 import fnmatch
 import importlib
+import importlib.metadata
 import importlib.util
 import inspect
 import json
@@ -527,6 +528,44 @@ def DictSearch(d, target):
         None, [[b] if a == target else DictSearch(b, target) if isinstance(b, dict) else None for a, b in d.items()]
     )
     return [i for b in val for i in b]
+
+
+###################################################################################################
+# given a dict, return the first value sorted by value
+def MinHashValueByValue(x):
+    return next(
+        iter(list({k: v for k, v in sorted(x.items(), key=lambda item: item[1])}.values())),
+        None,
+    )
+
+
+###################################################################################################
+# given a dict, return the first value sorted by key
+def MinHashValueByKey(x):
+    return next(
+        iter(list({k: v for k, v in sorted(x.items(), key=lambda item: item[0])}.values())),
+        None,
+    )
+
+
+###################################################################################################
+# given a dict, return the last value sorted by value
+def MaxHashValueByValue(x):
+    try:
+        *_, last = iter(list({k: v for k, v in sorted(x.items(), key=lambda item: item[1])}.values()))
+    except Exception:
+        last = None
+    return last
+
+
+###################################################################################################
+# given a dict, return the last value sorted by key
+def MaxHashValueByKey(x):
+    try:
+        *_, last = iter(list({k: v for k, v in sorted(x.items(), key=lambda item: item[0])}.values()))
+    except Exception:
+        last = None
+    return last
 
 
 ###################################################################################################
@@ -1588,6 +1627,54 @@ def set_logging(
 
 
 ###################################################################################################
+
+
 def main():
-    print(f"mmguero v{importlib.metadata.version('mmguero')}")
+    package_name = __package__ or "mmguero"
+
+    try:
+        metadata = importlib.metadata.metadata(package_name)
+        version = metadata.get("Version", "unknown")
+        summary = metadata.get("Summary", "")
+
+        # Extract all project URLs (Hatchling puts them here)
+        project_urls = []
+        for key, value in metadata.items():
+            if key.lower() == "project-url":
+                project_urls.append(value)
+
+    except importlib.metadata.PackageNotFoundError:
+        version = "source"
+        summary = "Seth Grover's useful Python helpers (uninstalled source tree)"
+        project_urls = []
+
+    print(f"\n🧰 {package_name} v{version}")
+    if summary:
+        print(f"   {summary}")
+
+    if project_urls:
+        print("\n🌐 Project URLs:")
+        for entry in project_urls:
+            print(f"   {entry}")
+
+    print("\n📦 Public functions and classes:")
+
+    module = sys.modules[package_name]
+    public_items = []
+
+    for name in getattr(module, "__all__", []):
+        obj = getattr(module, name, None)
+        if inspect.isfunction(obj):
+            public_items.append(f"  ⚙️  {name}()")
+        elif inspect.isclass(obj):
+            public_items.append(f"  🧱 {name}")
+        else:
+            public_items.append(f"  🔹 {name}")
+
+    if public_items:
+        print("\n".join(public_items))
+    else:
+        print("  (none found)")
+    print()
+
     sys.exit(0)
