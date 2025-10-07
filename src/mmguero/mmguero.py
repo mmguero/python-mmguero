@@ -516,7 +516,7 @@ def deep_merge(source, destination):
     return destination
 
 
-def deep_mergeInPlace(source, destination):
+def deep_merge_in_place(source, destination):
     for key, value in source.items():
         if isinstance(value, dict) and isinstance(destination.get(key), dict):
             deep_merge(value, destination[key])
