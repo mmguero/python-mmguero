@@ -63,9 +63,10 @@ _dialog = None
 _main_dialog = None
 
 ###################################################################################################
-PLATFORM_WINDOWS = "Windows"
-PLATFORM_MAC = "Darwin"
-PLATFORM_LINUX = "Linux"
+PLATFORM_WINDOWS = "windows"
+PLATFORM_DARWIN = "darwin"
+PLATFORM_MAC = "macos"
+PLATFORM_LINUX = "linux"
 PLATFORM_LINUX_ALMA = "almalinux"
 PLATFORM_LINUX_AMAZON = "amzn"
 PLATFORM_LINUX_CENTOS = "centos"
@@ -612,7 +613,7 @@ def remove_falsy(obj):
 # attempt to clear the screen
 def clear_screen():
     try:
-        os.system("clear" if platform.system() != PLATFORM_WINDOWS else "cls")
+        os.system("clear" if sys.platform.lower() != PLATFORM_WINDOWS else "cls")
     except Exception:
         pass
 
@@ -1364,7 +1365,7 @@ def dynamic_import(import_name, pip_pkg_name, interactive=False, debug=False, si
 
         # see if we can help out by installing the module
 
-        py_platform = platform.system()
+        py_platform = sys.platform.lower()
         py_exec = sys.executable
         pip_cmd = "pip3"
         if not (pip_found := which(pip_cmd, debug=debug)):
@@ -1379,7 +1380,7 @@ def dynamic_import(import_name, pip_pkg_name, interactive=False, debug=False, si
             if yes_or_no(f"Importing the {pip_pkg_name} module failed. Attempt to install via {pip_cmd}?"):
                 install_cmd = None
 
-                if (py_platform == PLATFORM_LINUX) or (py_platform == PLATFORM_MAC):
+                if py_platform in [PLATFORM_LINUX, PLATFORM_DARWIN, PLATFORM_MAC]:
                     # for linux/mac, we're going to try to figure out if this python is owned by root or the script user
                     if getpass.getuser() == getpwuid(os.stat(py_exec).st_uid).pw_name:
                         # we're running a user-owned python, regular pip should work
@@ -1511,7 +1512,7 @@ def rmtree_except(path, exclude_patterns=None, ignore_errors=False):
 
 
 ###################################################################################################
-# return information about this distribution (really only useful for Linux at the moment)
+# return information about this OS distribution
 def distro_info() -> tuple[Optional[str], Optional[str], Optional[str], Optional[str]]:
     distro = None
     codename = None
@@ -1519,7 +1520,7 @@ def distro_info() -> tuple[Optional[str], Optional[str], Optional[str], Optional
     release = None
     plat = sys.platform.lower()
 
-    if plat == "linux":
+    if plat.startswith(PLATFORM_LINUX):
         os_release_info = {}
 
         # if the distro library can do it for us, prefer that
@@ -1603,6 +1604,14 @@ def distro_info() -> tuple[Optional[str], Optional[str], Optional[str], Optional
                     distro = distro_vals[0]
                     if (not release) and (len(distro_nums) > 0):
                         release = distro_nums[0]
+
+    elif plat.startswith(PLATFORM_DARWIN) or plat.startswith(PLATFORM_MAC):
+        distro = PLATFORM_MAC
+        release = platform.mac_ver()[0]
+
+    elif plat.startswith("win"):
+        distro = PLATFORM_WINDOWS
+        release = platform.release()
 
     if not distro:
         distro = plat
