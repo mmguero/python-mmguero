@@ -33,6 +33,7 @@ from multiprocessing import RawValue
 from subprocess import PIPE, Popen, CalledProcessError, run as SubProcessRun
 from threading import Lock
 from types import GeneratorType, FunctionType, LambdaType
+from typing import Optional
 
 try:
     from collections.abc import Iterable
@@ -66,13 +67,17 @@ PLATFORM_WINDOWS = "Windows"
 PLATFORM_MAC = "Darwin"
 PLATFORM_LINUX = "Linux"
 PLATFORM_LINUX_ALMA = "almalinux"
-PLATFORM_LINUX_AMAZON = "amazon"
+PLATFORM_LINUX_AMAZON = "amzn"
 PLATFORM_LINUX_CENTOS = "centos"
 PLATFORM_LINUX_DEBIAN = "debian"
+PLATFORM_LINUX_ELEMENTARY = "elementary"
 PLATFORM_LINUX_FEDORA = "fedora"
-PLATFORM_LINUX_RASPBIAN = "raspbian"
+PLATFORM_LINUX_MINT = "linuxmint"
+PLATFORM_LINUX_POP = "pop"
+PLATFORM_LINUX_RHEL = "rhel"
 PLATFORM_LINUX_ROCKY = "rocky"
 PLATFORM_LINUX_UBUNTU = "ubuntu"
+PLATFORM_LINUX_ZORIN = "zorin"
 
 
 ###################################################################################################
@@ -1341,7 +1346,11 @@ def get_function_name(depth=0):
 _dyn_imports = defaultdict(lambda: None)
 
 
-def dynamic_import(import_name, pip_pkg_name, interactive=False, debug=False):
+def dynamic_import(import_name, pip_pkg_name, interactive=False, debug=False, silent=True):
+    global _dyn_imports
+
+    debug = debug and not silent
+
     # see if we've already imported it
     if not _dyn_imports[import_name]:
         # if not, attempt the import
@@ -1363,7 +1372,8 @@ def dynamic_import(import_name, pip_pkg_name, interactive=False, debug=False):
             if out and (pip_found := (err == 0)):
                 pip_cmd = [sys.executable, '-m', 'pip']
 
-        eprint(f"The {pip_pkg_name} module is required under Python {platform.python_version()} ({py_exec})")
+        if not silent:
+            eprint(f"The {pip_pkg_name} module is required under Python {platform.python_version()} ({py_exec})")
 
         if interactive and pip_found:
             if yes_or_no(f"Importing the {pip_pkg_name} module failed. Attempt to install via {pip_cmd}?"):
@@ -1383,7 +1393,8 @@ def dynamic_import(import_name, pip_pkg_name, interactive=False, debug=False):
 
                 err, out = run_process(install_cmd, debug=debug)
                 if err == 0:
-                    eprint(f"Installation of {pip_pkg_name} module apparently succeeded")
+                    if not silent:
+                        eprint(f"Installation of {pip_pkg_name} module apparently succeeded")
                     importlib.reload(site)
                     importlib.invalidate_caches()
                     try:
@@ -1391,11 +1402,12 @@ def dynamic_import(import_name, pip_pkg_name, interactive=False, debug=False):
                         if tmp_import:
                             _dyn_imports[import_name] = tmp_import
                     except Exception as e:
-                        eprint(f"Importing the {import_name} module still failed: {e}")
-                else:
+                        if not silent:
+                            eprint(f"Importing the {import_name} module still failed: {e}")
+                elif not silent:
                     eprint(f"Installation of {import_name} module failed: {out}")
 
-    if not _dyn_imports[import_name]:
+    if not _dyn_imports[import_name] and not silent:
         eprint(
             "System-wide installation varies by platform and Python configuration. Please consult platform-specific documentation for installing Python modules."
         )
@@ -1496,6 +1508,106 @@ def rmtree_except(path, exclude_patterns=None, ignore_errors=False):
     except Exception:
         if not ignore_errors:
             raise
+
+
+###################################################################################################
+# return information about this distribution (really only useful for Linux at the moment)
+def distro_info() -> tuple[Optional[str], Optional[str], Optional[str], Optional[str]]:
+    distro = None
+    codename = None
+    ubuntu_codename = None
+    release = None
+    plat = sys.platform.lower()
+
+    if plat == "linux":
+        os_release_info = {}
+
+        # if the distro library can do it for us, prefer that
+        if distro_lib := dynamic_import("distro", "distro"):
+            distro = distro_lib.id()
+            codename = distro_lib.codename()
+            release = distro_lib.version()
+            os_release_info = distro_lib.os_release_info()
+
+        # check /etc/os-release values
+        if not os_release_info:
+            if os.path.isfile('/etc/os-release'):
+                with open("/etc/os-release", 'r') as f:
+                    for line in f:
+                        try:
+                            k, v = line.rstrip().split("=", 1)
+                            os_release_info[k.lower()] = v.strip('"')
+                        except Exception:
+                            pass
+
+        if os_release_info:
+            if not distro:
+                if os_release_info.get('id'):
+                    distro = os_release_info['id'].lower().split()[0]
+                elif os_release_info.get('name'):
+                    distro = os_release_info['name'].lower().split()[0]
+
+            if not codename:
+                if os_release_info.get('version_codename'):
+                    codename = os_release_info['version_codename'].lower().split()[0]
+                elif os_release_info.get('codename'):
+                    codename = os_release_info['codename'].lower().split()[0]
+
+            if (not release) and os_release_info.get('version_id'):
+                release = os_release_info['version_id'].lower().split()[0]
+
+            if not ubuntu_codename:
+                if os_release_info.get('ubuntu_version_codename'):
+                    ubuntu_codename = os_release_info['ubuntu_version_codename'].lower().split()[0]
+                elif os_release_info.get('ubuntu_codename'):
+                    ubuntu_codename = os_release_info['ubuntu_codename'].lower().split()[0]
+                elif codename and (distro == PLATFORM_LINUX_UBUNTU):
+                    ubuntu_codename = codename
+
+        # try lsb_release
+        if (not all([distro, codename, release])) and which('lsb_release'):
+            if not distro:
+                err, out = run_process(['lsb_release', '-is'], stderr=False)
+                if (err == 0) and out:
+                    distro = out[0].lower()
+
+            if not codename:
+                err, out = run_process(['lsb_release', '-cs'], stderr=False)
+                if (err == 0) and out:
+                    codename = out[0].lower()
+
+            if not release:
+                err, out = run_process(['lsb_release', '-rs'], stderr=False)
+                if (err == 0) and out:
+                    release = out[0].lower()
+
+        # try release-specific files
+        if not distro:
+            if distro_file := next(
+                (
+                    path
+                    for path in [
+                        '/etc/rocky-release',
+                        '/etc/almalinux-release',
+                        '/etc/centos-release',
+                        '/etc/redhat-release',
+                        '/etc/issue',
+                    ]
+                    if os.path.isfile(path)
+                ),
+                None,
+            ):
+                with open(distro_file, 'r') as f:
+                    distro_vals = f.read().lower().split()
+                    distro_nums = [x for x in distro_vals if x[0].isdigit()]
+                    distro = distro_vals[0]
+                    if (not release) and (len(distro_nums) > 0):
+                        release = distro_nums[0]
+
+    if not distro:
+        distro = plat
+
+    return distro, codename, ubuntu_codename, release
 
 
 ###################################################################################################
