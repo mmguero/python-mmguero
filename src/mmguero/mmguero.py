@@ -8,6 +8,8 @@ import contextlib
 import getpass
 import hashlib
 import fnmatch
+import functools
+import glob
 import importlib
 import importlib.metadata
 import importlib.util
@@ -25,7 +27,7 @@ import sys
 import tempfile
 import time
 
-from base64 import b64decode
+from base64 import b64encode, b64decode, binascii
 from datetime import datetime
 from collections import defaultdict, namedtuple, OrderedDict
 from enum import IntEnum, IntFlag, auto
@@ -282,12 +284,39 @@ def eprint(*args, **kwargs):
 
 ###################################################################################################
 # print a list of lists into a nice table
-def tablify(matrix, file=sys.stdout):
-    col_max_len = {i: max(map(len, inner)) for i, inner in enumerate(zip(*matrix))}
-    for row in matrix:
+def tablify(matrix, file=sys.stdout, do_sort=False, first_row_is_header=False, do_header_divider=False):
+    # If the matrix is empty, there's nothing to do
+    if not matrix:
+        return
+
+    # 1. Handle Header vs Data logic
+    if first_row_is_header:
+        header = matrix[0]
+        rows = list(matrix[1:])  # Copy remaining rows to avoid mutating original
+    else:
+        header = None
+        rows = list(matrix)
+
+    # 2. Sort the rows if requested
+    if do_sort:
+        rows.sort()
+
+    # 3. Reconstruct the display list
+    final_matrix = [header] + rows if header else rows
+
+    # 4. Calculate column widths
+    colMaxLen = {i: max(map(len, inner)) for i, inner in enumerate(zip(*final_matrix))}
+
+    # 5. Print the table
+    for i, row in enumerate(final_matrix):
         for col, data in enumerate(row):
-            print(f"{data:{col_max_len[col]}}", end=" | ", file=file)
+            print(f"{data:{colMaxLen[col]}}", end=" | ", file=file)
         print(file=file)
+
+        # Print a divider line under the header
+        if do_header_divider and first_row_is_header and i == 0:
+            divider = "-+-".join("-" * colMaxLen[c] for c in range(len(row)))
+            print(f"{divider}-|", file=file)
 
 
 ###################################################################################################
@@ -1024,12 +1053,58 @@ def display_program_box(
 
 
 ###################################################################################################
-# decode a string as base64 only if it starts with base64:, otherwise just return
+# if a string starts with 'base64:', decode it, otherwise return it as-is
 def base64_decode_if_prefixed(s: str):
     if s.startswith('base64:'):
         return b64decode(s[7:]).decode('utf-8')
     else:
         return s
+
+
+def base64_encode_files_in_dir(directory, pattern):
+    """
+    Return a dict mapping relative file paths to Base64-encoded contents
+    for all files in the given directory (recursively) matching the glob pattern.
+    Example:
+        /tmp/foobar/app.env           -> "app.env"
+        /tmp/foobar/barbaz/what.env   -> "barbaz/what.env"
+    """
+    result = {}
+    # Enable recursive search with **
+    search_pattern = os.path.join(directory, "**", pattern)
+    for filepath in glob.glob(search_pattern, recursive=True):
+        if os.path.isfile(filepath):
+            with open(filepath, "rb") as f:
+                encoded = b64encode(f.read()).decode("utf-8")
+            rel_path = os.path.relpath(filepath, directory)
+            result[rel_path] = encoded
+    return result
+
+
+def base64_decode_files_to_dir(encoded_dict, dest_dir):
+    """
+    Given a dict mapping relative paths to Base64-encoded contents,
+    recreate the files under dest_dir.
+
+    - Creates dest_dir and subdirectories if they don’t exist
+    - Skips entries that fail Base64 decoding
+    """
+    os.makedirs(dest_dir, exist_ok=True)
+
+    for rel_path, b64data in encoded_dict.items():
+        try:
+            decoded = b64decode(b64data, validate=True)
+        except (binascii.Error, ValueError):
+            continue
+
+        full_path = os.path.join(dest_dir, rel_path)
+        os.makedirs(os.path.dirname(full_path), exist_ok=True)
+
+        try:
+            with open(full_path, "wb") as f:
+                f.write(decoded)
+        except Exception:
+            continue
 
 
 ###################################################################################################
@@ -1326,6 +1401,42 @@ def run_sub_process(command, stdout=True, stderr=False, stdin=None, timeout=60):
     return retcode, output
 
 
+def get_main_script_path() -> Optional[str]:
+    """
+    Return the absolute path to the original top-level Python script
+    that started execution (the "main" script), handling various
+    invocation methods and packaging scenarios.
+    Returns None if no script path can be determined (e.g. interactive shell).
+    """
+    import __main__
+
+    # Case 1: Frozen app (PyInstaller, cx_Freeze, etc.)
+    if getattr(sys, 'frozen', False):
+        return os.path.abspath(sys.executable)
+
+    # Case 2: Normal script or module invocation
+    if hasattr(__main__, "__file__"):
+        return os.path.abspath(__main__.__file__)
+
+    # Case 3: sys.argv[0] fallback (covers direct + relative execution)
+    argv0 = sys.argv[0]
+    if argv0:
+        if not os.path.isabs(argv0):
+            resolved = sh_which(argv0)
+            if resolved:
+                return os.path.abspath(resolved)
+        return os.path.abspath(argv0)
+
+    # Case 4: Interactive shell or embedded Python
+    return None
+
+
+def get_main_script_dir() -> Optional[str]:
+    if mpath := get_main_script_path():
+        return os.path.dirname(os.path.abspath(mpath))
+    return None
+
+
 ###################################################################################################
 # return the name of the calling function as a string
 def get_function_name(depth=0):
@@ -1340,6 +1451,25 @@ def get_function_name(depth=0):
         return None
     finally:
         del frame
+
+
+###################################################################################################
+# Returns the raw underlying function behind a method, classmethod, staticmethod, or functools.partial/wrapped method.
+def unwrap_method(method):
+
+    # Handle classmethod / staticmethod
+    if isinstance(method, (classmethod, staticmethod)):
+        method = method.__func__
+
+    # Unwrap functools.partial, wraps, etc.
+    while hasattr(method, "__wrapped__"):
+        method = method.__wrapped__
+
+    # functools.partialmethod stores the underlying function in `func`
+    if isinstance(method, functools.partial):
+        method = method.func
+
+    return method
 
 
 ###################################################################################################
