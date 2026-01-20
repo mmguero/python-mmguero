@@ -21,7 +21,9 @@ $ 🧰 mmguero v#.#.#
   ⚙️  ask_for_password()
   ⚙️  ask_for_string()
   🧱 AtomicInt
+  ⚙️  base64_decode_files_to_dir()
   ⚙️  base64_decode_if_prefixed()
+  ⚙️  base64_encode_files_in_dir()
   🧱 BoolOrExtra
   🧱 CaselessDictionary
   ⚙️  check_output_input()
@@ -40,6 +42,7 @@ $ 🧰 mmguero v#.#.#
   ⚙️  dict_search()
   ⚙️  display_message()
   ⚙️  display_program_box()
+  ⚙️  distro_info()
   ⚙️  download_to_file()
   ⚙️  dynamic_import()
   ⚙️  eprint()
@@ -50,6 +53,8 @@ $ 🧰 mmguero v#.#.#
   ⚙️  flatten()
   ⚙️  get_function_name()
   ⚙️  get_iterable()
+  ⚙️  get_main_script_dir()
+  ⚙️  get_main_script_path()
   ⚙️  get_primary_ip()
   ⚙️  get_verbosity_env_var_count()
   ⚙️  git_clone()
@@ -83,6 +88,7 @@ $ 🧰 mmguero v#.#.#
   ⚙️  test_socket()
   ⚙️  touch()
   ⚙️  unescape_for_curl()
+  ⚙️  unwrap_method()
   🧱 UserInputDefaultsBehavior
   🧱 UserInterfaceMode
   ⚙️  val2bool()
