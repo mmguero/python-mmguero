@@ -8,7 +8,6 @@ from .output import eprint, size_human_format
 from .system import dynamic_import
 
 
-# test if a remote port is open
 def test_socket(host, port):
     """Test if a remote port is open.
 
@@ -27,7 +26,6 @@ def test_socket(host, port):
             return False
 
 
-# return the primary IP (the one with a default route) on the local box
 def get_primary_ip():
     """Return the primary IP (the one with a default route) on the local box.
 
@@ -47,7 +45,6 @@ def get_primary_ip():
     return ip
 
 
-# download to file
 def download_to_file(url, local_filename, chunk_size=4096, interactive=False, debug=False):
     """Download to file.
 

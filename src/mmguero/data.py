@@ -19,15 +19,14 @@ except ImportError:
     utc_time_zone = timezone.utc
 
 
-# safe deep get for a dictionary
-#
-# Example:
-#   d = {'meta': {'status': 'OK', 'status_code': 200}}
-#   deep_get(d, ['meta', 'status_code'])          # => 200
-#   deep_get(d, ['garbage', 'status_code'])       # => None
-#   deep_get(d, ['meta', 'garbage'], default='-') # => '-'
 def deep_get(d, keys, default=None):
     """Safe deep get for a dictionary.
+
+    Example:
+      d = {'meta': {'status': 'OK', 'status_code': 200}}
+      deep_get(d, ['meta', 'status_code'])          # => 200
+      deep_get(d, ['garbage', 'status_code'])       # => None
+      deep_get(d, ['meta', 'garbage'], default='-') # => '-'
 
     Args:
         d (dict): Dictionary to read from.
@@ -45,7 +44,6 @@ def deep_get(d, keys, default=None):
     return deep_get(d.get(k[0]), k[1:], default)
 
 
-# convenience routine for setting-getting a value into a dictionary
 def deep_set(d, keys, value, delete_if_none=False):
     """Convenience routine for setting a value into a dictionary at a nested path.
 
@@ -65,8 +63,6 @@ def deep_set(d, keys, value, delete_if_none=False):
         d.pop(k[-1], None)
 
 
-# Recursively merges 'source' dict into 'destination' dict. Values from 'source' override those
-#    in 'destination' at the same path.
 def deep_merge(source, destination):
     """Recursively merge `source` into `destination`, with `source` values taking precedence.
 
@@ -99,7 +95,6 @@ def deep_merge_in_place(source, destination):
             destination[key] = value
 
 
-# recursive dictionary key search
 def dict_search(d, target):
     """Recursive dictionary key search.
 
@@ -116,7 +111,6 @@ def dict_search(d, target):
     return [i for b in val for i in b]
 
 
-# given a dict, return the first value sorted by value
 def min_hash_value_by_value(x):
     """Given a dict, return the value paired with the smallest value.
 
@@ -132,7 +126,6 @@ def min_hash_value_by_value(x):
     )
 
 
-# given a dict, return the first value sorted by key
 def min_hash_value_by_key(x):
     """Given a dict, return the value paired with the smallest key.
 
@@ -148,7 +141,6 @@ def min_hash_value_by_key(x):
     )
 
 
-# given a dict, return the last value sorted by value
 def max_hash_value_by_value(x):
     """Given a dict, return the value paired with the largest value.
 
@@ -165,7 +157,6 @@ def max_hash_value_by_value(x):
     return last
 
 
-# given a dict, return the last value sorted by key
 def max_hash_value_by_key(x):
     """Given a dict, return the value paired with the largest key.
 
@@ -182,7 +173,6 @@ def max_hash_value_by_key(x):
     return last
 
 
-# flatten a collection, but don't split strings
 def flatten(coll):
     """Flatten a collection, but don't split strings.
 
@@ -200,8 +190,6 @@ def flatten(coll):
             yield i
 
 
-# if the object is an iterable, return it, otherwise return a tuple with it as a single element.
-# useful if you want to user either a scalar or an array in a loop, etc.
 def get_iterable(x):
     """Treat a scalar or an iterable uniformly.
 
@@ -217,7 +205,6 @@ def get_iterable(x):
         return (x,)
 
 
-# remove "empty" items from a collection
 def remove_falsy(obj):
     """Remove "empty" items from a collection.
 
@@ -235,7 +222,6 @@ def remove_falsy(obj):
         return obj if obj else None
 
 
-# attempt to decode a string as JSON, returning the object if it decodes and None otherwise
 def load_str_if_json(json_str):
     """Attempt to decode a string as JSON.
 
@@ -251,9 +237,6 @@ def load_str_if_json(json_str):
         return None
 
 
-# attempt to decode a file (given by handle) as JSON, returning the object if it decodes and
-# None otherwise. Also, if attempt_lines=True, attempt to handle cases of a file containing
-# individual lines of valid JSON.
 def load_file_if_json(file_handle, attempt_lines=False):
     """Attempt to decode a file (given by handle) as JSON.
 
@@ -288,7 +271,6 @@ def load_file_if_json(file_handle, attempt_lines=False):
     return result
 
 
-# JSON serializer with better support for objects
 def json_obj_serializer(obj):
     """JSON serializer with better support for objects.
 

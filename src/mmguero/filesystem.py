@@ -53,7 +53,6 @@ def temporary_filename(suffix=None):
         os.unlink(tmp_name)
 
 
-# open a file and close it, updating its access time
 def touch(filename):
     """Create the file if it doesn't exist and update its access/modification time, like the `touch` command.
 
@@ -64,7 +63,6 @@ def touch(filename):
     os.utime(filename, None)
 
 
-# append strings to a text file
 def append_to_file(filename, value):
     """Append a value to a text file.
 
@@ -79,7 +77,6 @@ def append_to_file(filename, value):
             f.write(value)
 
 
-# "pop" lines from the beginning of a file
 def pop_line(file_name, count=1):
     """ "Pop" line(s) from the beginning of a file, rewriting the remainder in place.
 
@@ -101,7 +98,6 @@ def pop_line(file_name, count=1):
     return result if (len(result) != 1) else result[0]
 
 
-# read the contents of a file, first assuming text (with encoding), optionally falling back to binary
 def file_contents(filename, encoding='utf-8', binary_fallback=False):
     """Read the contents of a file, first assuming text, optionally falling back to binary.
 
@@ -133,7 +129,6 @@ def file_contents(filename, encoding='utf-8', binary_fallback=False):
         return None
 
 
-# use memory-mapped files and count "\n" (fastest for many small files as it avoids subprocess overhead)
 def count_lines_mmap(file_path):
     """Count newline characters in a file using a memory-mapped read.
 
@@ -154,7 +149,6 @@ def count_lines_mmap(file_path):
         return file_path, 0
 
 
-# return true if os.path.samefile, also False on exception
 def same_file_or_dir(path1, path2):
     """Return true if os.path.samefile, also False on exception.
 
@@ -171,7 +165,6 @@ def same_file_or_dir(path1, path2):
         return False
 
 
-# "chown -R" a file or directory
 def chown_recursive(path, uid, gid):
     """ "chown -R" a file or directory.
 
@@ -189,7 +182,6 @@ def chown_recursive(path, uid, gid):
                 os.chown(os.path.join(dirpath, fname), int(uid), int(gid), follow_symlinks=False)
 
 
-# recursively delete a directory tree while excluding specific files based on glob-style patterns
 def rmtree_except(path, exclude_patterns=None, ignore_errors=False):
     """Recursively delete a directory tree while excluding specific files based on glob-style patterns.
 
@@ -230,7 +222,6 @@ def rmtree_except(path, exclude_patterns=None, ignore_errors=False):
             raise
 
 
-# recursively remove empty subfolders
 def remove_empty_folders(path, remove_root=True):
     """Recursively remove empty subfolders.
 

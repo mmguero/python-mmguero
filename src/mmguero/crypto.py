@@ -54,7 +54,6 @@ def evp_bytes_to_key(key_length: int, iv_length: int, md, salt: bytes, data: byt
     return key, iv
 
 
-# calculate a sha256 hash of a file
 def sha256_sum(filename):
     """Calculate a sha256 hash of a file.
 
@@ -76,7 +75,6 @@ def sha256_sum(filename):
         return None
 
 
-# calculate SHAKE256 hash of a file
 def shakey_sum(filename, digest_len=8):
     """Calculate SHAKE256 hash of a file.
 

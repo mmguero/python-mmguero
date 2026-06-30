@@ -9,7 +9,6 @@ from base64 import b64encode, b64decode, binascii
 from collections import defaultdict
 
 
-# convenient boolean argument parsing
 def str2bool(v):
     """Convenient boolean argument parsing.
 
@@ -37,7 +36,6 @@ def str2bool(v):
         raise ValueError("Boolean value expected")
 
 
-# convenient boolean argument parsing
 def val2bool(v):
     """Convenient boolean argument parsing.
 
@@ -66,7 +64,6 @@ def val2bool(v):
         return v
 
 
-# urlencode each character of a string
 def aggressive_url_encode(val):
     """Urlencode each character of a string.
 
@@ -79,7 +76,6 @@ def aggressive_url_encode(val):
     return "".join("%{0:0>2}".format(format(ord(char), "x")) for char in val)
 
 
-# any character in the string is in string.whitespace
 def contains_whitespace(s):
     """Check whether any character in the string is in string.whitespace.
 
@@ -106,7 +102,6 @@ def custom_make_translation(text, translation):
     return regex.sub(lambda match: translation[match.group(0)], text)
 
 
-# remove ANSI escape sequences
 def escape_ansi(line):
     """Remove ANSI escape sequences from a string.
 
@@ -165,24 +160,9 @@ def unescape_for_curl(s):
     )
 
 
-# parse a curl-formatted config file, with special handling for user:password and URL
-# see https://everything.curl.dev/cmdline/configfile
-# e.g.:
-#
-# given .opensearch.primary.curlrc containing:
-# -
-# user: "sikari:changethis"
-# insecure
-# -
-#
-# parse_curl_file('.opensearch.primary.curlrc') returns:
-#   {
-#    'user': 'sikari',
-#    'password': 'changethis',
-#    'insecure': ''
-#   }
 def parse_curl_file(curl_cfg_file_name):
     """Parse a curl-formatted config file, with special handling for user:password and URL.
+    (see https://everything.curl.dev/cmdline/configfile)
 
     Args:
         curl_cfg_file_name (str): Path to a curl-formatted config file.
@@ -211,7 +191,6 @@ def parse_curl_file(curl_cfg_file_name):
     return result
 
 
-# if a string starts with 'base64:', decode it, otherwise return it as-is
 def base64_decode_if_prefixed(s: str):
     """Decode a string if it starts with the 'base64:' prefix.
 
@@ -282,7 +261,6 @@ def base64_decode_files_to_dir(encoded_dict, dest_dir):
             continue
 
 
-# strip a prefix from the beginning of a string if needed
 def remove_prefix(text, prefix):
     """Strip a prefix from the beginning of a string if needed.
 
@@ -299,7 +277,6 @@ def remove_prefix(text, prefix):
         return text
 
 
-# strip a suffix from the end of a string if needed
 def remove_suffix(text, suffix):
     """Strip a suffix from the end of a string if needed.
 

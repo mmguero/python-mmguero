@@ -50,7 +50,6 @@ def get_main_script_dir() -> Optional[str]:
     return None
 
 
-# return the name of the calling function as a string
 def get_function_name(depth=0):
     """Return the name of the calling function as a string.
 
@@ -73,7 +72,6 @@ def get_function_name(depth=0):
         del frame
 
 
-# Returns the raw underlying function behind a method, classmethod, staticmethod, or functools.partial/wrapped method.
 def unwrap_method(method):
     """Returns the raw underlying function behind a method, classmethod, staticmethod, or functools.partial/wrapped method.
 

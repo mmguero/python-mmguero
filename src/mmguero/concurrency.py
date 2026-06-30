@@ -5,7 +5,6 @@ from multiprocessing import RawValue
 from threading import Lock
 
 
-# atomic integer class and context manager
 class AtomicInt:
     """A thread-safe integer that also doubles as a context manager.
 

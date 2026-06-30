@@ -30,7 +30,6 @@ from .platforms import PLATFORM_DARWIN, PLATFORM_LINUX, PLATFORM_LINUX_UBUNTU, P
 from .process import run_process
 
 
-# determine if a program/script exists and is executable in the system path
 def which(cmd, debug=False):
     """Determine if a program/script exists and is executable in the system path.
 
@@ -133,7 +132,6 @@ def dynamic_import(import_name, pip_pkg_name, interactive=False, debug=False, si
     return _dyn_imports[import_name]
 
 
-# create a local git clone
 def git_clone(
     url,
     local_dir,
@@ -174,7 +172,6 @@ def git_clone(
     )
 
 
-# return information about this OS distribution
 def distro_info() -> tuple[Optional[str], Optional[str], Optional[str], Optional[str]]:
     """Return information about this OS distribution.
 

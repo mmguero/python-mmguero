@@ -5,7 +5,6 @@ import sys
 from datetime import datetime
 
 
-# print to stderr
 def eprint(*args, **kwargs):
     """Print to stderr.
 
@@ -29,7 +28,6 @@ def eprint(*args, **kwargs):
         sys.stderr.flush()
 
 
-# print a list of lists into a nice table
 def tablify(matrix, file=sys.stdout, do_sort=False, first_row_is_header=False, do_header_divider=False):
     """Print a list of lists as a nice, aligned table.
 
@@ -74,7 +72,6 @@ def tablify(matrix, file=sys.stdout, do_sort=False, first_row_is_header=False, d
             print(f"{divider}-|", file=file)
 
 
-# nice human-readable file sizes
 def size_human_format(num, suffix="B"):
     """Nice human-readable file sizes.
 

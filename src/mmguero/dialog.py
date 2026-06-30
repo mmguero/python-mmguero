@@ -114,7 +114,6 @@ def str2bool_or_extra(v):
         raise ValueError("BoolOrExtra value expected")
 
 
-# attempt to clear the screen
 def clear_screen():
     """Attempt to clear the screen, silently ignoring failures."""
     try:
@@ -123,7 +122,6 @@ def clear_screen():
         pass
 
 
-# get interactive user response to Y/N question
 def yes_or_no(
     question,
     default=None,
@@ -233,7 +231,6 @@ def yes_or_no(
     return bool(result)
 
 
-# get interactive user response
 def ask_for_string(
     question,
     default=None,
@@ -306,7 +303,6 @@ def ask_for_string(
     return reply
 
 
-# get interactive password (without echoing)
 def ask_for_password(
     prompt,
     default=None,
@@ -363,11 +359,6 @@ def ask_for_password(
     return reply
 
 
-# Choose one of many.
-# choices - an iterable of (tag, item, status) tuples where status specifies the initial
-# selected/unselected state of each entry; can be True or False, 1 or 0, "on" or "off"
-# (True, 1 and "on" meaning selected), or any case variation of these two strings.
-# No more than one entry should be set to True.
 def choose_one(
     prompt,
     choices=[],
@@ -447,10 +438,6 @@ def choose_one(
     return reply
 
 
-# Choose multiple of many
-# choices - an iterable of (tag, item, status) tuples where status specifies the initial
-# selected/unselected state of each entry; can be True or False, 1 or 0, "on" or "off"
-# (True, 1 and "on" meaning selected), or any case variation of these two strings.
 def choose_multiple(
     prompt,
     choices=[],
@@ -539,7 +526,6 @@ def choose_multiple(
     return reply
 
 
-# display a message to the user without feedback
 def display_message(
     message,
     default_behavior=UserInputDefaultsBehavior.DEFAULTS_PROMPT,
@@ -593,7 +579,6 @@ def display_message(
     return reply
 
 
-# display streaming content via _dialog.programbox
 def display_program_box(
     file_path=None,
     file_flags=0,
