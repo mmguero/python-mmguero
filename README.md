@@ -7,7 +7,7 @@
 Run `mmguero` to get a list of the exported functions and classes, e.g.:
 
 ```bash
-$ 🧰 mmguero v#.#.#
+🧰 mmguero v#.#.#
    Seth Grover's useful Python helpers
 
 🌐 Project URLs:
@@ -18,6 +18,7 @@ $ 🧰 mmguero v#.#.#
 📦 Public functions and classes:
   ⚙️  aggressive_url_encode()
   ⚙️  append_to_file()
+  🧱 ArchiveBombError
   ⚙️  ask_for_password()
   ⚙️  ask_for_string()
   🧱 AtomicInt
@@ -76,6 +77,7 @@ $ 🧰 mmguero v#.#.#
   ⚙️  rmtree_except()
   ⚙️  run_process()
   ⚙️  run_sub_process()
+  ⚙️  safe_extract()
   ⚙️  same_file_or_dir()
   ⚙️  set_logging()
   ⚙️  sha256_sum()
