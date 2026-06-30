@@ -3,21 +3,23 @@
 import bz2
 import gzip
 import lzma
-import magic
 import os
 import re
 import shutil
 import subprocess
-import libarchive.extract
-import libarchive.read
 
 from .filesystem import pushd
+from .system import dynamic_import
 
-ARCHIVE_EXTRACT_FLAGS = (
-    libarchive.extract.EXTRACT_SECURE_NODOTDOT
-    | libarchive.extract.EXTRACT_SECURE_NOABSOLUTEPATHS
-    | libarchive.extract.EXTRACT_SECURE_SYMLINKS
-)
+magic = dynamic_import("magic", "python-magic")
+if libarchive := dynamic_import("libarchive", "libarchive-c"):
+    ARCHIVE_EXTRACT_FLAGS = (
+        libarchive.extract.EXTRACT_SECURE_NODOTDOT
+        | libarchive.extract.EXTRACT_SECURE_NOABSOLUTEPATHS
+        | libarchive.extract.EXTRACT_SECURE_SYMLINKS
+    )
+else:
+    ARCHIVE_EXTRACT_FLAGS = None
 
 # Archive bomb limits — override via environment variables
 ARCHIVE_EXTRACT_MAX_ENTRIES = int(os.environ.get('SAFE_EXTRACT_MAX_ENTRIES', 5000))
@@ -76,6 +78,9 @@ def _extract_raw_stream(archive, dest, archive_mime=None):
         dest (str): Destination directory.
         archive_mime (str, optional): Pre-determined MIME type; detected via `magic` if omitted.
     """
+    if not magic:
+        raise ImportError('Could not dynamically import magic')
+
     open_fn = ARCHIVE_RAW_STREAM_MIMES[archive_mime if archive_mime else magic.from_file(archive, mime=True)]
     outname = _strip_compression_ext(archive)
     outpath = os.path.join(dest, outname)
@@ -112,13 +117,17 @@ def _extract_libarchive(archive, dest):
     Raises:
         ArchiveBombError: If the archive exceeds the configured entry count, nesting depth, or total uncompressed size limits, or contains a directory entry that resolves outside `dest`.
     """
+    if not libarchive:
+        raise ImportError('Could not dynamically import libarchive')
+
     count = 0
     total_bytes = 0
+    real_source = os.path.realpath(archive)
     real_dest = os.path.realpath(dest)
 
     try:
         with pushd(dest):
-            with libarchive.read.file_reader(archive) as a:
+            with libarchive.read.file_reader(real_source) as a:
                 for entry in a:
                     count += 1
                     total_bytes += getattr(entry, 'size', 0) or 0
@@ -165,7 +174,7 @@ def safe_extract(archive, dest):
         dest (str): Destination directory to create and extract into.
     """
     os.makedirs(dest, exist_ok=False)
-    file_mime_type = magic.from_file(archive, mime=True)
+    file_mime_type = magic.from_file(archive, mime=True) if magic else None
 
     if TAR_COMPRESSED_EXTS.search(archive):
         _extract_libarchive(archive, dest)

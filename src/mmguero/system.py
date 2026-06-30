@@ -11,6 +11,8 @@ import importlib
 from collections import defaultdict
 from typing import Optional
 
+from .clihints import _exclude_from_cli
+
 try:
     from pwd import getpwuid
 except Exception:
@@ -53,6 +55,7 @@ def which(cmd, debug=False):
 _dyn_imports = defaultdict(lambda: None)
 
 
+@_exclude_from_cli
 def dynamic_import(import_name, pip_pkg_name, interactive=False, debug=False, silent=True):
     """Attempt dynamic imports, prompting for install via pip if possible.
 
@@ -283,6 +286,7 @@ def distro_info() -> tuple[Optional[str], Optional[str], Optional[str], Optional
     return distro, codename, ubuntu_codename, release
 
 
+@_exclude_from_cli
 def get_verbosity_env_var_count(var_name):
     """Read a verbosity count from an environment variable.
 
@@ -302,6 +306,7 @@ def get_verbosity_env_var_count(var_name):
         return 0
 
 
+@_exclude_from_cli
 def set_logging(
     log_level_str,
     flag_level_count,

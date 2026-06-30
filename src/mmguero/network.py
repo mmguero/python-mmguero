@@ -59,6 +59,8 @@ def download_to_file(url, local_filename, chunk_size=4096, interactive=False, de
         bool: True if the resulting file exists and is non-empty.
     """
     requests = dynamic_import("requests", "requests", interactive=interactive, debug=debug)
+    if not requests:
+        raise ImportError('Could not dynamically import requests')
 
     r = requests.get(url, stream=True, allow_redirects=True)
     with open(local_filename, "wb") as f:

@@ -2,19 +2,28 @@
 
 import sys
 
-import fire
+try:
+    import fire
+except Exception:
+    fire = None
+
 import importlib.metadata
 import inspect
 
+from .clihints import _exclude_from_cli
 
+
+@_exclude_from_cli
 def main():
     """Entry point for running this module as a script."""
 
-    if len(sys.argv) > 1:
-        import mmguero  # deferred on purpose -- see note above
+    if (fire is not None) and (len(sys.argv) > 1):
+        import mmguero  # deferred on purpose
 
         commands = {
-            name: getattr(mmguero, name) for name in mmguero.__all__ if inspect.isfunction(getattr(mmguero, name))
+            name: obj
+            for name in mmguero.__all__
+            if inspect.isfunction(obj := getattr(mmguero, name)) and not getattr(obj, "_mmguero_no_cli", False)
         }
         fire.Fire(commands)
 

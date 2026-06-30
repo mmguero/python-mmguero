@@ -8,6 +8,7 @@ import sys
 from enum import IntEnum, IntFlag, auto
 
 from .platforms import PLATFORM_WINDOWS
+from .clihints import _exclude_from_cli
 
 _dialog = None
 _main_dialog = None
@@ -87,6 +88,7 @@ class BoolOrExtra(IntEnum):
     EXTRA = 2
 
 
+@_exclude_from_cli
 def str2bool_or_extra(v):
     """Like str2bool, but also recognizes a third back/extra state.
 
@@ -122,6 +124,7 @@ def clear_screen():
         pass
 
 
+@_exclude_from_cli
 def yes_or_no(
     question,
     default=None,
@@ -231,6 +234,7 @@ def yes_or_no(
     return bool(result)
 
 
+@_exclude_from_cli
 def ask_for_string(
     question,
     default=None,
@@ -303,6 +307,7 @@ def ask_for_string(
     return reply
 
 
+@_exclude_from_cli
 def ask_for_password(
     prompt,
     default=None,
@@ -359,6 +364,7 @@ def ask_for_password(
     return reply
 
 
+@_exclude_from_cli
 def choose_one(
     prompt,
     choices=[],
@@ -438,6 +444,7 @@ def choose_one(
     return reply
 
 
+@_exclude_from_cli
 def choose_multiple(
     prompt,
     choices=[],
@@ -526,6 +533,7 @@ def choose_multiple(
     return reply
 
 
+@_exclude_from_cli
 def display_message(
     message,
     default_behavior=UserInputDefaultsBehavior.DEFAULTS_PROMPT,
@@ -579,6 +587,7 @@ def display_message(
     return reply
 
 
+@_exclude_from_cli
 def display_program_box(
     file_path=None,
     file_flags=0,

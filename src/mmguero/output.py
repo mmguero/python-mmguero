@@ -4,6 +4,8 @@ import sys
 
 from datetime import datetime
 
+from .clihints import _exclude_from_cli
+
 
 def eprint(*args, **kwargs):
     """Print to stderr.
@@ -28,6 +30,7 @@ def eprint(*args, **kwargs):
         sys.stderr.flush()
 
 
+@_exclude_from_cli
 def tablify(matrix, file=sys.stdout, do_sort=False, first_row_is_header=False, do_header_divider=False):
     """Print a list of lists as a nice, aligned table.
 

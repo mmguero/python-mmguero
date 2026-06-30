@@ -12,6 +12,8 @@ try:
 except ImportError:
     from collections import Iterable
 
+from .clihints import _exclude_from_cli
+
 
 # a context manager for entering a directory and leaving it upon leaving the context
 @contextlib.contextmanager
@@ -165,6 +167,7 @@ def same_file_or_dir(path1, path2):
         return False
 
 
+@_exclude_from_cli
 def chown_recursive(path, uid, gid):
     """ "chown -R" a file or directory.
 
@@ -182,6 +185,7 @@ def chown_recursive(path, uid, gid):
                 os.chown(os.path.join(dirpath, fname), int(uid), int(gid), follow_symlinks=False)
 
 
+@_exclude_from_cli
 def rmtree_except(path, exclude_patterns=None, ignore_errors=False):
     """Recursively delete a directory tree while excluding specific files based on glob-style patterns.
 
@@ -222,6 +226,7 @@ def rmtree_except(path, exclude_patterns=None, ignore_errors=False):
             raise
 
 
+@_exclude_from_cli
 def remove_empty_folders(path, remove_root=True):
     """Recursively remove empty subfolders.
 

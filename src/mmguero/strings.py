@@ -9,6 +9,7 @@ from base64 import b64encode, b64decode, binascii
 from collections import defaultdict
 
 
+@_exclude_from_cli
 def str2bool(v):
     """Convenient boolean argument parsing.
 
@@ -36,6 +37,7 @@ def str2bool(v):
         raise ValueError("Boolean value expected")
 
 
+@_exclude_from_cli
 def val2bool(v):
     """Convenient boolean argument parsing.
 
@@ -88,6 +90,7 @@ def contains_whitespace(s):
     return True in [c in s for c in string.whitespace]
 
 
+@_exclude_from_cli
 def custom_make_translation(text, translation):
     """Apply a multi-character string translation.
 
@@ -232,6 +235,7 @@ def base64_encode_files_in_dir(directory, pattern):
     return result
 
 
+@_exclude_from_cli
 def base64_decode_files_to_dir(encoded_dict, dest_dir):
     """Given a dict mapping relative paths to Base64-encoded contents,
     recreate the files under dest_dir.

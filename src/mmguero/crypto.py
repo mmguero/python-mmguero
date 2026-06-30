@@ -2,6 +2,8 @@
 
 import hashlib
 
+from .clihints import _exclude_from_cli
+
 # EVP_BytesToKey - create key compatible with openssl enc
 # reference: https://github.com/openssl/openssl/blob/6f0ac0e2f27d9240516edb9a23b7863e7ad02898/crypto/evp/evp_key.c#L74
 #            https://gist.github.com/chrono-meter/d122cbefc6f6248a0af554995f072460
@@ -10,6 +12,7 @@ _OPENSSL_ENC_MAGIC = b'Salted__'
 _PKCS5_SALT_LEN = 8
 
 
+@_exclude_from_cli
 def evp_bytes_to_key(key_length: int, iv_length: int, md, salt: bytes, data: bytes, count: int = 1) -> (bytes, bytes):
     """EVP_BytesToKey - create a key/IV pair compatible with `openssl enc`.
 

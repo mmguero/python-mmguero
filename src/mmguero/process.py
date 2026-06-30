@@ -7,8 +7,10 @@ from subprocess import PIPE, Popen, run as SubProcessRun
 
 from .data import flatten, get_iterable
 from .output import eprint
+from .clihints import _exclude_from_cli
 
 
+@_exclude_from_cli
 def check_output_input(*popenargs, **kwargs):
     """Run command with arguments and return its exit code, stdout, and stderr.
 
@@ -50,6 +52,7 @@ def check_output_input(*popenargs, **kwargs):
     return retcode, output, errput
 
 
+@_exclude_from_cli
 def run_process(
     command,
     stdout=True,
@@ -130,6 +133,7 @@ def run_process(
         return retcode, output
 
 
+@_exclude_from_cli
 def run_sub_process(command, stdout=True, stderr=False, stdin=None, timeout=60):
     """Execute a shell process returning its exit code and output.
 

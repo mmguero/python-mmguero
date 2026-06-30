@@ -5,6 +5,9 @@ import json
 from datetime import datetime
 from types import GeneratorType, FunctionType, LambdaType
 
+from .clihints import _exclude_from_cli
+
+
 try:
     from collections.abc import Iterable
 except ImportError:
@@ -19,6 +22,7 @@ except ImportError:
     utc_time_zone = timezone.utc
 
 
+@_exclude_from_cli
 def deep_get(d, keys, default=None):
     """Safe deep get for a dictionary.
 
@@ -44,6 +48,7 @@ def deep_get(d, keys, default=None):
     return deep_get(d.get(k[0]), k[1:], default)
 
 
+@_exclude_from_cli
 def deep_set(d, keys, value, delete_if_none=False):
     """Convenience routine for setting a value into a dictionary at a nested path.
 
@@ -63,6 +68,7 @@ def deep_set(d, keys, value, delete_if_none=False):
         d.pop(k[-1], None)
 
 
+@_exclude_from_cli
 def deep_merge(source, destination):
     """Recursively merge `source` into `destination`, with `source` values taking precedence.
 
@@ -81,6 +87,7 @@ def deep_merge(source, destination):
     return destination
 
 
+@_exclude_from_cli
 def deep_merge_in_place(source, destination):
     """Recursively merge `source` into `destination` in place.
 
@@ -95,6 +102,7 @@ def deep_merge_in_place(source, destination):
             destination[key] = value
 
 
+@_exclude_from_cli
 def dict_search(d, target):
     """Recursive dictionary key search.
 
@@ -111,6 +119,7 @@ def dict_search(d, target):
     return [i for b in val for i in b]
 
 
+@_exclude_from_cli
 def min_hash_value_by_value(x):
     """Given a dict, return the value paired with the smallest value.
 
@@ -126,6 +135,7 @@ def min_hash_value_by_value(x):
     )
 
 
+@_exclude_from_cli
 def min_hash_value_by_key(x):
     """Given a dict, return the value paired with the smallest key.
 
@@ -141,6 +151,7 @@ def min_hash_value_by_key(x):
     )
 
 
+@_exclude_from_cli
 def max_hash_value_by_value(x):
     """Given a dict, return the value paired with the largest value.
 
@@ -157,6 +168,7 @@ def max_hash_value_by_value(x):
     return last
 
 
+@_exclude_from_cli
 def max_hash_value_by_key(x):
     """Given a dict, return the value paired with the largest key.
 
@@ -173,6 +185,7 @@ def max_hash_value_by_key(x):
     return last
 
 
+@_exclude_from_cli
 def flatten(coll):
     """Flatten a collection, but don't split strings.
 
@@ -190,6 +203,7 @@ def flatten(coll):
             yield i
 
 
+@_exclude_from_cli
 def get_iterable(x):
     """Treat a scalar or an iterable uniformly.
 
@@ -205,6 +219,7 @@ def get_iterable(x):
         return (x,)
 
 
+@_exclude_from_cli
 def remove_falsy(obj):
     """Remove "empty" items from a collection.
 
@@ -237,6 +252,7 @@ def load_str_if_json(json_str):
         return None
 
 
+@_exclude_from_cli
 def load_file_if_json(file_handle, attempt_lines=False):
     """Attempt to decode a file (given by handle) as JSON.
 
@@ -271,6 +287,7 @@ def load_file_if_json(file_handle, attempt_lines=False):
     return result
 
 
+@_exclude_from_cli
 def json_obj_serializer(obj):
     """JSON serializer with better support for objects.
 

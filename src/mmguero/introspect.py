@@ -7,7 +7,10 @@ import sys
 import shutil
 from typing import Optional
 
+from .clihints import _exclude_from_cli
 
+
+@_exclude_from_cli
 def get_main_script_path() -> Optional[str]:
     """Return the absolute path to the original top-level Python script
     that started execution (the "main" script), handling various
@@ -39,6 +42,7 @@ def get_main_script_path() -> Optional[str]:
     return None
 
 
+@_exclude_from_cli
 def get_main_script_dir() -> Optional[str]:
     """Return the directory containing the main script.
 
@@ -50,6 +54,7 @@ def get_main_script_dir() -> Optional[str]:
     return None
 
 
+@_exclude_from_cli
 def get_function_name(depth=0):
     """Return the name of the calling function as a string.
 
@@ -72,6 +77,7 @@ def get_function_name(depth=0):
         del frame
 
 
+@_exclude_from_cli
 def unwrap_method(method):
     """Returns the raw underlying function behind a method, classmethod, staticmethod, or functools.partial/wrapped method.
 
