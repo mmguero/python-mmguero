@@ -7,6 +7,7 @@ import string
 
 from base64 import b64encode, b64decode, binascii
 from collections import defaultdict
+from .clihints import _exclude_from_cli
 
 
 @_exclude_from_cli
