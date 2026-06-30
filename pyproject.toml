@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mmguero"
-version = "2.1.1"
+version = "2.2.0"
 authors = [
   { name="Seth Grover", email="mero.mero.guero@gmail.com" },
 ]
@@ -17,6 +17,12 @@ classifiers = [
     "Operating System :: OS Independent",
     "Topic :: Utilities"
 ]
+dependencies = ["fire", "libarchive-c", "python-magic"]
+
+[project.optional-dependencies]
+git = ["GitPython"]
+requests = ["requests"]
+all = ["mmguero[git,requests]"]
 
 [project.urls]
 Homepage = "https://github.com/mmguero/python-mmguero"
