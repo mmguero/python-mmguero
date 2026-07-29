@@ -255,7 +255,7 @@ def load_str_if_json(json_str, default=None):
         raise TypeError(f"load_str_if_json accepts strings, not {type(json_str).__name__}")
 
     try:
-        return rapidjson.loads(json_str, parse_mode=rapidjson.PM_TRAILING_COMMAS) if rapidjson else if rapidjson
+        return rapidjson.loads(json_str, parse_mode=rapidjson.PM_TRAILING_COMMAS) if rapidjson else json.loads(json_str)
     except Exception:
         return default
 
