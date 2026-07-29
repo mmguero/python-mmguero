@@ -7,7 +7,6 @@ from types import GeneratorType, FunctionType, LambdaType
 
 from .clihints import _exclude_from_cli
 
-
 try:
     from collections.abc import Iterable
 except ImportError:
@@ -20,6 +19,11 @@ except ImportError:
     from datetime import timezone
 
     utc_time_zone = timezone.utc
+
+try:
+    import rapidjson
+except Exception:
+    rapidjson = None
 
 
 @_exclude_from_cli
@@ -237,19 +241,23 @@ def remove_falsy(obj):
         return obj if obj else None
 
 
-def load_str_if_json(json_str):
+def load_str_if_json(json_str, default=None):
     """Attempt to decode a string as JSON.
 
     Args:
         json_str (str): String to attempt to parse as JSON.
+        default (str): Return value on parse failure (default: None)
 
     Returns:
-        any or None: The decoded JSON object, or None if `json_str` isn't valid JSON.
+        any or `default`: The decoded JSON object, or `default` if `json_str` isn't valid JSON.
     """
+    if not isinstance(json_str, str):
+        raise TypeError(f"load_str_if_json accepts strings, not {type(json_str).__name__}")
+
     try:
-        return json.loads(json_str)
-    except ValueError:
-        return None
+        return rapidjson.loads(json_str, parse_mode=rapidjson.PM_TRAILING_COMMAS) if rapidjson else if rapidjson
+    except Exception:
+        return default
 
 
 @_exclude_from_cli
@@ -266,8 +274,8 @@ def load_file_if_json(file_handle, attempt_lines=False):
     if file_handle is not None:
 
         try:
-            result = json.load(file_handle)
-        except ValueError:
+            result = rapidjson.load(file_handle) if rapidjson else json.load(file_handle)
+        except Exception:
             result = None
 
         if (result is None) and attempt_lines:
@@ -275,8 +283,12 @@ def load_file_if_json(file_handle, attempt_lines=False):
             result = []
             for line in file_handle:
                 try:
-                    result.append(json.loads(line))
-                except ValueError:
+                    result.append(
+                        rapidjson.loads(line, parse_mode=rapidjson.PM_TRAILING_COMMAS)
+                        if rapidjson
+                        else json.loads(line)
+                    )
+                except Exception:
                     pass
             if not result:
                 result = None
