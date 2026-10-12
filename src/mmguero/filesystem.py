@@ -16,6 +16,7 @@ from .clihints import _exclude_from_cli
 
 
 # a context manager for entering a directory and leaving it upon leaving the context
+@_exclude_from_cli
 @contextlib.contextmanager
 def pushd(directory):
     """Context manager that changes into a directory and restores the previous working
@@ -36,6 +37,7 @@ def pushd(directory):
 
 
 # a context manager returning a temporary filename which is deleted upon leaving the context
+@_exclude_from_cli
 @contextlib.contextmanager
 def temporary_filename(suffix=None):
     """Context manager yielding a temporary filename that is deleted when the context exits.

@@ -12,6 +12,11 @@ import subprocess
 from .filesystem import pushd
 from .system import dynamic_import
 
+try:
+    from compression import zstd as _zstd
+except ImportError:
+    _zstd = None
+
 magic = dynamic_import("magic", "python-magic")
 if libarchive := dynamic_import("libarchive", "libarchive-c"):
     ARCHIVE_EXTRACT_FLAGS = (
@@ -37,10 +42,13 @@ ARCHIVE_RAW_STREAM_MIMES = {
     'application/x-xz': lzma.open,
     'application/x-lzma': lzma.open,
 }
+if _zstd:
+    ARCHIVE_RAW_STREAM_MIMES['application/zstd'] = _zstd.open
+    ARCHIVE_RAW_STREAM_MIMES['application/x-zstd'] = _zstd.open
 
 
 TAR_COMPRESSED_EXTS = re.compile(
-    r'\.(tgz|tbz2?|txz|tlz|tar\.(gz|bz2|xz|lz|lzma))$',
+    r'\.(tgz|tbz2?|txz|tlz|tzst|tar\.(gz|bz2|xz|lz|lzma|zst))$',
     flags=re.IGNORECASE,
 )
 
@@ -62,7 +70,7 @@ def _strip_compression_ext(path):
     """
     return (
         re.sub(
-            r'\.(gz|bz2|xz|lz|lzma)$',
+            r'\.(gz|bz2|xz|lz|lzma|zst)$',
             '',
             os.path.basename(path),
             flags=re.IGNORECASE,
@@ -172,7 +180,7 @@ def _extract_libarchive(archive, dest):
                     # Validate resolved path stays within dest before creating;
                     # os.makedirs with a raw entry.pathname has no traversal
                     # protection unlike file entries handled via ARCHIVE_EXTRACT_FLAGS.
-                    target = os.path.realpath(os.path.join(dest, entry.pathname))
+                    target = os.path.realpath(os.path.join(real_dest, entry.pathname))
                     if target != real_dest and not target.startswith(real_dest + os.sep):
                         raise ArchiveBombError(
                             f"directory traversal detected: {entry.pathname!r} resolves outside dest"
