@@ -4,8 +4,11 @@ import sys
 
 try:
     import fire
-except Exception:
+
+    _FIRE_IMPORT_ERROR = None
+except Exception as e:
     fire = None
+    _FIRE_IMPORT_ERROR = e
 
 import importlib.metadata
 import inspect
@@ -26,6 +29,17 @@ def main():
             if inspect.isfunction(obj := getattr(mmguero, name)) and not getattr(obj, "_mmguero_no_cli", False)
         }
         fire.Fire(commands)
+
+    elif len(sys.argv) > 1:
+        # arguments were given, but there's no Fire to dispatch them to: say why on
+        #   stderr and fail, so callers like "mmguero -- --completion bash" don't take
+        #   the banner below for their output
+        print(
+            f"mmguero: the command-line interface needs python-fire (pip install 'mmguero[fire]'), "
+            f"but importing it failed: {type(_FIRE_IMPORT_ERROR).__name__}: {_FIRE_IMPORT_ERROR}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
     else:
 
